@@ -10,3 +10,5 @@ This project implements a cyber-physical Pong game using a 3R planar manipulator
 - `include/`: C++ header files.
 - `data/`: Calibration files (camera parameters, color ranges).
 - `bin/`: Compiled output executables.
+
+TEST
