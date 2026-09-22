@@ -1,0 +1,16 @@
+# Binarios y carpetas de compilación
+bin/*
+!bin/.gitkeep
+*.o
+*.so
+*.a
+
+# Archivos de respaldo y editores
+*~
+.vscode/
+.idea/
+*.swp
+
+# Archivos de log y sistema
+*.log
+.DS_Store
