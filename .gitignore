@@ -14,3 +14,4 @@ bin/*
 # Archivos de log y sistema
 *.log
 .DS_Store
+lib/*.o
