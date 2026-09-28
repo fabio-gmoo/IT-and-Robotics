@@ -11,10 +11,9 @@
 #define BAUDRATE              1000000
 #define DEVICENAME            "/dev/ttyUSB0"
 
-#define ADDR_TORQUE_ENABLE    24   // 1 byte
-#define ADDR_GOAL_POSITION    30   // 2 bytes (0 a 1023)
+#define ADDR_TORQUE_ENABLE    24
+#define ADDR_GOAL_POSITION    30
 #define TORQUE_ENABLE         1
-#define TORQUE_DISABLE        0
 
 class PongRobot {
 private:
@@ -33,33 +32,19 @@ public:
 
     bool enableTorque(int id) {
         uint8_t dxl_error = 0;
-        int dxl_comm_result = packetHandler->write1ByteTxRx(portHandler, id, ADDR_TORQUE_ENABLE, TORQUE_ENABLE, &dxl_error);
-        if (dxl_comm_result != COMM_SUCCESS) {
-            std::cerr << "[-] Error al activar torque en ID " << id << ": " 
-                      << packetHandler->getTxRxResult(dxl_comm_result) << std::endl;
-            return false;
-        }
-        std::cout << "[+] Torque activado en ID: " << id << std::endl;
-        return true;
+        int comm_result = packetHandler->write1ByteTxRx(portHandler, id, ADDR_TORQUE_ENABLE, TORQUE_ENABLE, &dxl_error);
+        return (comm_result == COMM_SUCCESS && dxl_error == 0);
     }
 
     void writePosition(int id, int ticks) {
         ticks = std::clamp(ticks, 0, 1023);
         uint8_t dxl_error = 0;
-        int dxl_comm_result = packetHandler->write2ByteTxRx(portHandler, id, ADDR_GOAL_POSITION, (uint16_t)ticks, &dxl_error);
-        if (dxl_comm_result != COMM_SUCCESS) {
-            std::cerr << "[-] Fallo enviando posicion a ID " << id << ": " 
-                      << packetHandler->getTxRxResult(dxl_comm_result) << std::endl;
-        }
+        packetHandler->write2ByteTxRx(portHandler, id, ADDR_GOAL_POSITION, (uint16_t)ticks, &dxl_error);
     }
 
     bool init() {
-        if (!portHandler->openPort()) {
-            std::cerr << "[-] No se pudo abrir el puerto: " << DEVICENAME << std::endl;
-            return false;
-        }
-        if (!portHandler->setBaudRate(BAUDRATE)) {
-            std::cerr << "[-] No se pudo configurar baudrate" << std::endl;
+        if (!portHandler->openPort() || !portHandler->setBaudRate(BAUDRATE)) {
+            std::cerr << "[-] Error abriendo puerto serial " << DEVICENAME << std::endl;
             return false;
         }
 
@@ -68,57 +53,87 @@ public:
         enableTorque(id3); usleep(20000);
         enableTorque(id4); usleep(20000);
 
-        std::cout << "[+] Los 4 motores han sido inicializados." << std::endl;
+        std::cout << "[+] Robot inicializado correctamente." << std::endl;
         return true;
     }
 
-    // Cinemática Inversa planar (guía PongBot) asignada a ID1 (base), ID3 (codo) e ID4 (pala)
-    bool computeIK(double xe, double ye, double gamma_rad, double &q1, double &q2, double &q3) {
-        double x3 = xe - L3 * std::cos(gamma_rad);
-        double y3 = ye - L3 * std::sin(gamma_rad);
+    // Conversión articular idéntica a tu interactive_test
+    int radToTicksBase(double rad) {
+        double deg = rad * (180.0 / M_PI);
+        return std::clamp(static_cast<int>(512 + (deg * (1023.0 / 300.0))), 0, 1023);
+    }
+
+    int radToTicksElbow(double rad) {
+        double deg = rad * (180.0 / M_PI);
+        return std::clamp(static_cast<int>(512 - (deg * (1023.0 / 300.0))), 0, 1023);
+    }
+
+    int radToTicksWrist(double rad) {
+        double deg = rad * (180.0 / M_PI);
+        return std::clamp(static_cast<int>(512 - (deg * (1023.0 / 300.0))), 0, 1023);
+    }
+
+    // Cinemática Inversa referenciada al frente neutro (0 rad = 512 ticks)
+    bool computeIK(double x, double y, double gamma_rad, double &q1, double &q2, double &q3) {
+        // Punto de muñeca descontando la pala L3
+        double x3 = x - L3 * std::sin(-gamma_rad);
+        double y3 = y - L3 * std::cos(gamma_rad);
 
         double r2 = x3 * x3 + y3 * y3;
-        double cos_alpha = (r2 - L1 * L1 - L2 * L2) / (2.0 * L1 * L2);
+        double r = std::sqrt(r2);
 
-        if (cos_alpha < -1.0 || cos_alpha > 1.0) {
-            std::cerr << "[-] Posición fuera de rango de trabajo planar." << std::endl;
+        // Si se pide extensión completa frontal (r = L1 + L2)
+        if (r >= (L1 + L2) - 0.05) {
+            q1 = std::atan2(-x3, y3);
+            q2 = 0.0;
+            q3 = gamma_rad - q1;
+            return true;
+        }
+
+        if (r < std::abs(L1 - L2) || r < 0.1) {
+            std::cerr << "[-] Punto inalcanzable (muy cerca de la base)" << std::endl;
             return false;
         }
 
+        // Ley del coseno para encontrar el ángulo del codo
+        double cos_alpha = (L1 * L1 + L2 * L2 - r2) / (2.0 * L1 * L2);
+        cos_alpha = std::clamp(cos_alpha, -1.0, 1.0);
         double alpha = std::acos(cos_alpha);
-        double beta = std::asin(std::clamp((L2 * std::sin(alpha)) / std::sqrt(r2), -1.0, 1.0));
 
-        q1 = std::atan2(y3, x3) + beta;
-        q2 = -(M_PI - alpha);
+        // q2 = 0 cuando alpha = 180° (brazo estirado)
+        q2 = M_PI - alpha;
+
+        double sin_beta = (L2 * std::sin(q2)) / r;
+        sin_beta = std::clamp(sin_beta, -1.0, 1.0);
+        double beta = std::asin(sin_beta);
+
+        double theta = std::atan2(-x3, y3);
+        q1 = theta - beta;
         q3 = gamma_rad - q1 - q2;
 
         return true;
     }
 
-    int radToTicks(double rad) {
-        double deg = rad * (180.0 / M_PI);
-        int ticks = static_cast<int>(512 + (deg * (1023.0 / 300.0)));
-        return std::clamp(ticks, 0, 1023);
-    }
+    bool moveToPlanar(double x, double y, double gamma_rad, int fixed_shoulder = 341) {
+        double q1, q2, q3;
+        if (!computeIK(x, y, gamma_rad, q1, q2, q3)) return false;
 
-    // Movimiento planar: motor 2 bloqueado en altura fija
-    void moveToPlanar(double xe, double ye, double gamma_rad, int fixed_shoulder_ticks = 512) {
-        double q1, q3, q4;
-        if (computeIK(xe, ye, gamma_rad, q1, q3, q4)) {
-            writePosition(id1, radToTicks(q1));
-            writePosition(id2, fixed_shoulder_ticks); // Motor 2 se queda estático
-            writePosition(id3, radToTicks(q3));
-            writePosition(id4, radToTicks(q4));
-            std::cout << "[+] Movimiento Planar -> Base(ID1): " << radToTicks(q1)
-                      << " | Codo(ID3): " << radToTicks(q3)
-                      << " | Pala(ID4): " << radToTicks(q4) << std::endl;
-        }
+        int t1 = radToTicksBase(q1);
+        int t3 = radToTicksElbow(q2);
+        int t4 = radToTicksWrist(q3);
+
+        std::cout << "[IK Test] Coordenadas (X=" << x << ", Y=" << y << ")\n"
+                  << "          Ticks -> M1: " << t1 << " | M3: " << t3 << " | M4: " << t4 << std::endl;
+
+        writePosition(id2, fixed_shoulder); usleep(20000);
+        writePosition(id1, t1);             usleep(20000);
+        writePosition(id3, t3);             usleep(20000);
+        writePosition(id4, t4);             usleep(20000);
+        return true;
     }
 
     ~PongRobot() {
-        if (portHandler != nullptr) {
-            portHandler->closePort();
-        }
+        if (portHandler != nullptr) portHandler->closePort();
     }
 };
 

@@ -5,7 +5,9 @@ LDFLAGS = -ldxl_x64_cpp -lpthread -lrt
 BIN_DIR = bin
 SRC_DIR = src
 
-all: $(BIN_DIR)/interactive_test
+TARGETS = $(BIN_DIR)/main_robot_test $(BIN_DIR)/interactive_test
+
+all: $(TARGETS)
 
 $(BIN_DIR)/main_robot_test: $(SRC_DIR)/main_robot_test.cpp
 	mkdir -p $(BIN_DIR)
