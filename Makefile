@@ -4,6 +4,8 @@ all:  CameraCalibration RedBallDetection RedBallTracking Kinematics Dxl Servoing
 	g++ lib/RedBallTracking.o -o bin/RedBallTracking -L/usr/lib/x86_64-linux-gnu -lopencv_core -lopencv_highgui -lopencv_imgproc -lopencv_aruco -lopencv_videoio -lopencv_objdetect -lopencv_imgcodecs -lopencv_features2d -lopencv_calib3d
 	g++ -o bin/RobotServoing lib/RobotServoing.o lib/Kinematics.o lib/DynamixelHandler.o -L/usr/local/lib/ -ldxl_x64_cpp -lrt -L/usr/lib/x86_64-linux-gnu `pkg-config --libs opencv4`
 	g++ lib/ChessboardOrientationTracking.o -o bin/ChessboardOrientationTracking -L/usr/lib/x86_64-linux-gnu -lopencv_core -lopencv_highgui -lopencv_imgproc -lopencv_aruco -lopencv_videoio -lopencv_objdetect -lopencv_imgcodecs -lopencv_features2d -lopencv_calib3d
+MonoCameraCalibration: src/MonoCameraCalibration.cpp src/ReadWriteFunctions.cpp include/ReadWriteFunctions.h
+	g++ src/MonoCameraCalibration.cpp src/ReadWriteFunctions.cpp -Iinclude -o bin/MonoCameraCalibration $(shell pkg-config --cflags --libs opencv4)
 	
 CameraCalibration: src/CameraCalibration.cpp
 	g++ -c src/CameraCalibration.cpp -o lib/CameraCalibration.o -I./include -I/usr/include/opencv4
