@@ -6,11 +6,13 @@
 #include <string>
 #include <sstream>
 #include <algorithm>
+#include <chrono>
 
-#define ARDUINO_PORT "/dev/ttyACM0" // Ajusta a /dev/ttyUSB1 si fuera necesario
+#define ARDUINO_PORT "/dev/ttyACM0"
 
+// Configure serial port for non-blocking raw reading at 115200 baud
 int openSerial(const char* portName) {
-    int fd = open(portName, O_RDWR | O_NOCTTY | O_NDELAY);
+    int fd = open(portName, O_RDWR | O_NOCTTY | O_NONBLOCK);
     if (fd == -1) return -1;
 
     struct termios options;
@@ -28,95 +30,138 @@ int openSerial(const char* portName) {
     options.c_oflag &= ~OPOST;
 
     tcsetattr(fd, TCSANOW, &options);
+    tcflush(fd, TCIFLUSH);
     return fd;
 }
 
+// Discard buffered stale packets and extract only the latest reading
+bool getLatestJoystickData(int fd, int &raw_x, int &raw_y) {
+    char buf[512];
+    int n = read(fd, buf, sizeof(buf) - 1);
+    if (n <= 0) return false;
+
+    buf[n] = '\0';
+    std::string data(buf);
+
+    size_t last_nl = data.rfind('\n');
+    if (last_nl == std::string::npos) return false;
+
+    size_t prev_nl = data.rfind('\n', last_nl - 1);
+    std::string last_line;
+    if (prev_nl != std::string::npos) {
+        last_line = data.substr(prev_nl + 1, last_nl - prev_nl - 1);
+    } else {
+        last_line = data.substr(0, last_nl);
+    }
+
+    std::stringstream ss(last_line);
+    std::string s_x, s_y;
+    if (std::getline(ss, s_x, ',') && std::getline(ss, s_y, ',')) {
+        try {
+            raw_x = std::stoi(s_x);
+            raw_y = std::stoi(s_y);
+            return true;
+        } catch (...) {
+            return false;
+        }
+    }
+    return false;
+}
+
 int main() {
-    // Dimensiones en cm: L1=5.0, L2=5.5, L3=6.3
+    // Measured link lengths in cm: L1 = 5.0, L2 = 5.5, L3 = 6.3
     PongRobot robot(5.0, 5.5, 6.3, 1, 2, 3, 4);
     if (!robot.init()) {
-        std::cerr << "[-] Error al iniciar Dynamixel." << std::endl;
+        std::cerr << "[-] Error initializing Dynamixel communication." << std::endl;
         return -1;
     }
 
     int serial_fd = openSerial(ARDUINO_PORT);
     if (serial_fd == -1) {
-        std::cerr << "[-] No se pudo abrir el puerto del Arduino (" << ARDUINO_PORT << ")." << std::endl;
+        std::cerr << "[-] Failed to open " << ARDUINO_PORT << ". Check USB connection/permissions." << std::endl;
         return -1;
     }
 
     const int FIXED_SHOULDER = 341;
-    const double GAMMA_PARALLEL = 0.0;
+    const double GAMMA_PARALLEL = 0.0; // Paddle stays parallel to the baseline (x0)
 
-    // Posición inicial de reposo exacta (recto al frente comprobado)
+    // Base defense position
+    const double DEFAULT_Y = 13.5;
     double current_x = 0.0;
-    double current_y = 16.8;
+    double current_y = DEFAULT_Y;
 
-    std::cout << "[+] Colocando en posición inicial recta (X=0.0, Y=16.8)..." << std::endl;
+    std::cout << "[+] Positioning robot to initial home state (X = 0.0, Y = " << DEFAULT_Y << " cm)..." << std::endl;
     robot.moveToPlanar(current_x, current_y, GAMMA_PARALLEL, FIXED_SHOULDER);
-    sleep(2);
+    sleep(1);
 
-    std::cout << "\n==============================================" << std::endl;
-    std::cout << "  CONTROL INCREMENTAL POR JOYSTICK PONGBOT    " << std::endl;
-    std::cout << "  - Centro neutro: Sin movimiento             " << std::endl;
-    std::cout << "  - Pulsa el botón del joystick para centrar  " << std::endl;
-    std::cout << "==============================================" << std::endl;
+    std::cout << "\n=======================================================" << std::endl;
+    std::cout << "  HIGH-SPEED 1D DEFENSE + SMASH TRIGGER CONTROLLER     " << std::endl;
+    std::cout << "  - Move joystick LEFT / RIGHT : Rapid X translation   " << std::endl;
+    std::cout << "  - Push joystick FORWARD (Y)  : Trigger SMASH attack  " << std::endl;
+    std::cout << "  - Exit                       : Ctrl + C              " << std::endl;
+    std::cout << "=======================================================" << std::endl;
 
-    std::string buffer = "";
-    char ch;
-    int loop_counter = 0;
+    int raw_x = 512, raw_y = 512;
+    bool smash_active = false;
+    auto last_motor_update = std::chrono::steady_clock::now();
 
     while (true) {
-        if (read(serial_fd, &ch, 1) > 0) {
-            if (ch == '\n') {
-                std::stringstream ss(buffer);
-                std::string s_x, s_y, s_btn;
-                if (std::getline(ss, s_x, ',') && std::getline(ss, s_y, ',') && std::getline(ss, s_btn)) {
-                    try {
-                        int raw_x = std::stoi(s_x);
-                        int raw_y = std::stoi(s_y);
-                        int btn   = std::stoi(s_btn);
+        if (getLatestJoystickData(serial_fd, raw_x, raw_y)) {
 
-                        // Si presionas el botón del joystick (activo en 0), regresa al centro recto
-                        if (btn == 0) {
-                            current_x = 0.0;
-                            current_y = 16.8;
-                        } else {
-                            // Zona muerta (Deadzone): ignorar variaciones menores alrededor de 512
-                            double joy_dx = 0.0;
-                            double joy_dy = 0.0;
+            // SMASH ATTACK TRIGGER: Push joystick forward (raw_y > 800)
+            if (raw_y > 800 && !smash_active) {
+                smash_active = true;
+                std::cout << ">>> [SMASH] Executing rapid forward strike at X = " << current_x << " cm" << std::endl;
 
-                            if (raw_x > 570) joy_dx = (raw_x - 570) / 450.0;
-                            else if (raw_x < 450) joy_dx = (raw_x - 450) / 450.0;
+                // 1. Rapid backward recoil (-Y) to build momentum
+                robot.moveToPlanar(current_x, 11.5, GAMMA_PARALLEL, FIXED_SHOULDER);
+                usleep(35000); // 35 ms
 
-                            if (raw_y > 570) joy_dy = (raw_y - 570) / 450.0;
-                            else if (raw_y < 450) joy_dy = (raw_y - 450) / 450.0;
+                // 2. High-speed forward impact strike (+Y)
+                robot.moveToPlanar(current_x, 15.3, GAMMA_PARALLEL, FIXED_SHOULDER);
+                usleep(55000); // 55 ms
 
-                            // Velocidad de desplazamiento: paso máximo en cm por ciclo
-                            const double STEP = 0.25; 
+                // 3. Return to nominal defensive baseline
+                current_y = DEFAULT_Y;
+                robot.moveToPlanar(current_x, current_y, GAMMA_PARALLEL, FIXED_SHOULDER);
 
-                            // Actualizar posición de la pala de forma continua
-                            current_x += joy_dx * STEP;
-                            current_y += joy_dy * STEP;
+                // Flush serial buffer to prevent repeated triggers
+                tcflush(serial_fd, TCIFLUSH);
+                smash_active = false;
+            }
+            else if (!smash_active) {
+                // LATERAL X MOVEMENT ONLY
+                double vx = 0.0;
 
-                            // Límites seguros del espacio de trabajo
-                            current_x = std::clamp(current_x, -4.5, 4.5);
-                            current_y = std::clamp(current_y, 11.5, 16.8);
-                        }
+                // Deadzone around joystick resting position (450 to 570)
+                if (raw_x > 570) vx = (raw_x - 570.0) / 450.0;
+                else if (raw_x < 450) vx = (raw_x - 450.0) / 450.0;
 
-                        // Enviar comando al robot cada 2 lecturas para no saturar el bus
-                        if (++loop_counter % 2 == 0) {
-                            robot.moveToPlanar(current_x, current_y, GAMMA_PARALLEL, FIXED_SHOULDER);
-                        }
+                // High speed displacement step
+                const double SPEED = 0.85; // Step in cm per update cycle
+                double next_x = current_x + (vx * SPEED);
 
-                    } catch (...) {}
+                // Safe defensive boundary limits
+                next_x = std::clamp(next_x, -4.2, 4.2);
+
+                double q1, q2, q3;
+                if (robot.computeIK(next_x, DEFAULT_Y, GAMMA_PARALLEL, q1, q2, q3)) {
+                    current_x = next_x;
+                    current_y = DEFAULT_Y;
                 }
-                buffer = "";
-            } else if (ch != '\r') {
-                buffer += ch;
             }
         }
-        usleep(5000); // 200 Hz polling serial
+
+        // Send motor position updates every 15 ms (~66 Hz refresh rate)
+        auto now = std::chrono::steady_clock::now();
+        auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - last_motor_update).count();
+
+        if (elapsed >= 15 && !smash_active) {
+            robot.moveToPlanar(current_x, current_y, GAMMA_PARALLEL, FIXED_SHOULDER);
+            last_motor_update = now;
+        }
+
+        usleep(2000); // 2 ms polling loop
     }
 
     close(serial_fd);
