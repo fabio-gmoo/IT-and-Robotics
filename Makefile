@@ -19,7 +19,8 @@ TARGETS_ROBOT = $(BIN_DIR)/interactive_test \
 
 TARGETS_SERVOING = $(BIN_DIR)/RobotServoing
 
-all: $(TARGETS_VISION) $(TARGETS_SERVOING)
+all: $(TARGETS_VISION) $(TARGETS_SERVOING) $(BIN_DIR)/test_gui
+gui: $(BIN_DIR)/test_gui
 
 vision: $(TARGETS_VISION)
 robot: $(TARGETS_ROBOT)
@@ -63,3 +64,8 @@ $(BIN_DIR)/RobotServoing: $(SRC_DIR)/RobotServoing.cpp $(SRC_DIR)/Kinematics.cpp
 clean:
 	rm -rf $(BIN_DIR)/* $(SRC_DIR)/*.o lib/*.o
 	@touch $(BIN_DIR)/.gitkeep lib/.gitkeep
+
+# --- MODULO GUI ARCADE ---
+$(BIN_DIR)/test_gui: $(SRC_DIR)/game_gui.cpp $(SRC_DIR)/test_gui.cpp $(INC_DIR)/game_gui.hpp $(INC_DIR)/score_manager.hpp
+	@mkdir -p $(BIN_DIR)
+	$(CXX) $(CXXFLAGS) $(SRC_DIR)/game_gui.cpp $(SRC_DIR)/test_gui.cpp -o $@ $(LDFLAGS_CV)
