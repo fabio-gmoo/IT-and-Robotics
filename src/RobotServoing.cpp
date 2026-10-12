@@ -1,316 +1,293 @@
-#include <chrono>
-#include <thread>
+#include <algorithm>
+#include <cmath>
 #include <iostream>
-#include <ctype.h>
-#include <stdio.h>
-#include <stdlib.h>
+#include <string>
+#include <vector>
 #include <unistd.h>
 
-#include "opencv2/highgui/highgui.hpp"
-#include "opencv2/imgproc/imgproc.hpp"
+#include <opencv2/aruco.hpp>
 #include <opencv2/calib3d.hpp>
-
+#include <opencv2/highgui.hpp>
+#include <opencv2/imgcodecs.hpp>
+#include <opencv2/imgproc.hpp>
+#include <opencv2/videoio.hpp>
 #include "Kinematics.h"
 #include "DynamixelHandler.h"
 
-#define CAM_PARAMS_FILENAME "./data/camera_calibration_params.xml"
-#define COLOR_PARAMS_FILENAME "./data/color_params_data.xml"
-#define FPS 30.0
-#define STRUCTURAL_ELEMENTS_SIZE 5
-#define AREA_THRESOLD 1000
-#define ROBOT_L1 5
-#define ROBOT_L2 6
-#define HEIGHT2CM 24
-#define WIDTH2CM 33
+// All lengths and world positions are in centimetres.
+constexpr float L1 = 5.0f;
+constexpr float L2 = 6.0f;
+constexpr float ROBOT_X = 38.0f;
+constexpr float ROBOT_Y = 0.0f;
+constexpr int MIN_BALL_PIXELS = 150;
+constexpr int MIN_CONSECUTIVE_FRAMES = 3;
+constexpr int FRAMES_TO_REARM = 5;
+constexpr double FPS = 30.0;
 
-using namespace cv;
-using namespace std;
+const std::string DXL_PORT = "/dev/ttyUSB0";
+const std::string COLOR_FILE = "./data/color_params_data.xml";
+const std::string CAMERA_FILE = "./data/camera_calibration_params.xml";
 
-DynamixelHandler _oDxlHandler;
-std::string _robotDxlPortName = "/dev/ttyUSB0";
-float _robotDxlProtocol = 2.0;
-int _robotDxlBaudRate = 1000000;
+// New measured ArUco centre coordinates, 1 cm closer to the centre.
+// Order corresponds to top-left, top-right, bottom-left, bottom-right
+// AS SEEN BY THE CAMERA. Check this orientation before using motors.
+const std::vector<cv::Point2f> WORLD_MARKERS = {
+    {-20.4f,  8.15f}, {20.4f,  8.15f},
+    {-20.4f, -8.15f}, {20.4f, -8.15f}
+};
 
-
-void initRobot(DynamixelHandler& dxlHandler, std::string portName, float protocol, int baudRate)
-{
-	std::cout << "===Initialization of the Dynamixel Motor communication====" << std::endl;
-	dxlHandler.setDeviceName(portName);
-	dxlHandler.setProtocolVersion(protocol);
-	dxlHandler.openPort();
-	dxlHandler.setBaudRate(baudRate);
-	dxlHandler.enableTorque(true);
-	std::cout << std::endl;
+bool readColorParameters(int &loH, int &hiH, int &loS,
+                         int &hiS, int &loV, int &hiV) {
+    cv::FileStorage fs(COLOR_FILE, cv::FileStorage::READ);
+    if (!fs.isOpened()) return false;
+    fs["lowH"] >> loH; fs["highH"] >> hiH;
+    fs["lowS"] >> loS; fs["highS"] >> hiS;
+    fs["lowV"] >> loV; fs["highV"] >> hiV;
+    return true;
 }
 
-void closeRobot(DynamixelHandler& dxlHandler)
-{
-	dxlHandler.enableTorque(false);
-	dxlHandler.closePort();
+bool readCameraParameters(cv::Mat &matrix, cv::Mat &dist) {
+    cv::FileStorage fs(CAMERA_FILE, cv::FileStorage::READ);
+    if (!fs.isOpened()) return false;
+    fs["camera_matrix"] >> matrix;
+    fs["distortion_coefficients"] >> dist;
+    return !matrix.empty() && !dist.empty();
 }
 
-bool readCameraParameters(std::string filename, cv::Mat &camMatrix, cv::Mat & distCoeffs)
-{
-	cv::FileStorage fs(filename, cv::FileStorage::READ);
-	if (!fs.isOpened())
-	{
-		std::cout << "[ERROR] Could not open the camera parameter file storage: " <<  filename << " !"<< std::endl;
-		return false;
-	}
-	
-	fs["camera_matrix"] >> camMatrix;
-	fs["distortion_coefficients"] >> distCoeffs;
-	
-	return true;
+// Ordering by camera image position. For a rotated camera or other markers,
+// use explicit ArUco IDs instead of sorting by screen position.
+bool sortedArUcoCenters(const std::vector<std::vector<cv::Point2f>> &corners,
+                        std::vector<cv::Point2f> &sorted) {
+    if (corners.size() != 4) return false;
+    sorted.clear();
+    for (const auto &marker : corners) {
+        if (marker.size() != 4) return false;
+        cv::Point2f center(0.f, 0.f);
+        for (const auto &point : marker) center += point;
+        sorted.push_back(center * 0.25f);
+    }
+    std::sort(sorted.begin(), sorted.end(),
+              [](const cv::Point2f &a, const cv::Point2f &b) {
+                  return a.y < b.y;
+              });
+    if (sorted[0].x > sorted[1].x) std::swap(sorted[0], sorted[1]);
+    if (sorted[2].x > sorted[3].x) std::swap(sorted[2], sorted[3]);
+    return true;
 }
 
-bool readColorParameters(std::string filename, int& iLowH, int& iHighH, int& iLowS, int& iHighS, int& iLowV, int& iHighV)
-{
-	cv::FileStorage fs(filename, cv::FileStorage::READ);
-	if (!fs.isOpened())
-	{
-		std::cout << "[ERROR] Could not open the color paramter file storage: " <<  filename << " !"<< std::endl;
-		return false;
-	}
-	
-	fs["lowH"] >> iLowH;
-	fs["highH"] >> iHighH;
-	
-	fs["lowS"] >> iLowS;
-	fs["highS"] >> iHighS;
-	
-	fs["lowV"] >> iLowV;
-	fs["highV"] >> iHighV;
-	
-	return true;
+int main() {
+    int loH = 0, hiH = 0, loS = 0, hiS = 0, loV = 0, hiV = 0;
+    if (!readColorParameters(loH, hiH, loS, hiS, loV, hiV)) {
+        std::cerr << "[ERROR] Could not read HSV values in " << COLOR_FILE << "\n";
+        return 1;
+    }
+    cv::Mat cameraMatrix, distortion;
+    const bool calibrated = readCameraParameters(cameraMatrix, distortion);
+
+    if (access(DXL_PORT.c_str(), R_OK | W_OK) != 0) {
+        std::cerr << "[ERROR] Cannot access " << DXL_PORT
+                  << "; check VirtualBox USB and dialout.\n";
+        return 1;
+    }
+    cv::VideoCapture camera(0, cv::CAP_V4L2);
+    if (!camera.isOpened()) {
+        std::cerr << "[ERROR] Cannot open the webcam.\n";
+        return 1;
+    }
+
+    DynamixelHandler dxl;
+    dxl.setDeviceName(DXL_PORT);
+    dxl.setProtocolVersion(2.0f);
+    dxl.openPort();
+    dxl.setBaudRate(1000000);
+    // No torque until manual arming: prevents an unexpected first movement.
+    // Note: verify physical joint limits and motor directions before pressing M.
+
+    const auto dictionary = cv::aruco::getPredefinedDictionary(cv::aruco::DICT_4X4_50);
+    const auto params = cv::aruco::DetectorParameters::create();
+    const auto element = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(5, 5));
+
+    bool motorsArmed = false;
+    bool targetSent = false;
+    int inReachFrames = 0;
+    int outsideFrames = 0;
+    bool undistort = calibrated;
+    // Capture the ArUco homography ONCE during startup and reuse it.
+    bool homographyReady = false;
+    cv::Mat homography;
+    unsigned long frameIndex = 0;
+    float qpen = deg2rad(-90);
+
+    std::cout << "[INFO] Robot base = (" << ROBOT_X << ", " << ROBOT_Y << ") cm.\n"
+              << "[INFO] Waiting for four ArUco markers once. Their map will then be frozen.\n"
+              << "[INFO] M = arm/disarm motors, C = recalibrate (motors disarmed),\n"
+              << "       U = undistort (only before calibration), ESC = exit.\n";
+
+    while (true) {
+        cv::Mat frame;
+        if (!camera.read(frame) || frame.empty()) {
+            std::cerr << "[ERROR] Camera frame unavailable.\n";
+            break;
+        }
+        if (undistort) {
+            cv::Mat corrected;
+            cv::undistort(frame, corrected, cameraMatrix, distortion);
+            frame = corrected;
+        }
+        cv::Mat screen = frame.clone();
+        frameIndex++;
+
+        // 1) Initial calibration: as soon as four markers are detected,
+        //    save the homography and stop requiring their visibility.
+        //    This is the equivalent of calibrating from a startup snapshot.
+        if (!homographyReady) {
+            std::vector<int> markerIds;
+            std::vector<std::vector<cv::Point2f>> markerCorners;
+            cv::aruco::detectMarkers(frame, dictionary, markerCorners,
+                                     markerIds, params);
+            if (!markerIds.empty())
+                cv::aruco::drawDetectedMarkers(screen, markerCorners, markerIds);
+
+            if (markerIds.size() == 4) {
+                std::vector<cv::Point2f> centers;
+                if (sortedArUcoCenters(markerCorners, centers)) {
+                    cv::Mat candidate = cv::getPerspectiveTransform(
+                        centers, WORLD_MARKERS);
+                    if (!candidate.empty() && cv::checkRange(candidate)) {
+                        homography = candidate.clone();
+                        homographyReady = true;
+                        // Also save the startup calibration frame for inspection.
+                        try {
+                            if (cv::imwrite("./data/aruco_calibration_snapshot.png", screen))
+                                std::cout << "[CALIB] Saved snapshot: ./data/aruco_calibration_snapshot.png\n";
+                        } catch (const cv::Exception &e) {
+                            std::cerr << "[WARN] Could not save calibration image: " << e.what() << '\n';
+                        }
+                        std::cout << "[CALIB] 4 ArUco found. Homography frozen. "
+                                  << "Markers may now leave the image.\n";
+                    }
+                }
+            }
+        }
+
+        // 2) Detect the ball on the unannotated camera frame.
+        cv::Mat hsv, mask;
+        cv::cvtColor(frame, hsv, cv::COLOR_BGR2HSV);
+        cv::inRange(hsv, cv::Scalar(loH, loS, loV),
+                    cv::Scalar(hiH, hiS, hiV), mask);
+        cv::morphologyEx(mask, mask, cv::MORPH_OPEN, element);
+        cv::morphologyEx(mask, mask, cv::MORPH_CLOSE, element);
+        cv::Moments m = cv::moments(mask, true);
+        bool ballDetected = m.m00 >= MIN_BALL_PIXELS;
+
+        float xWorld = 0, yWorld = 0, xRobot = 0, yRobot = 0;
+        float distance = 0;
+        bool inReach = false;
+
+        if (homographyReady && ballDetected) {
+            cv::Point2f pixel(static_cast<float>(m.m10 / m.m00),
+                              static_cast<float>(m.m01 / m.m00));
+            cv::circle(screen, pixel, 9, cv::Scalar(0, 255, 0), 2);
+
+            std::vector<cv::Point2f> world;
+            cv::perspectiveTransform(std::vector<cv::Point2f>{pixel},
+                                     world, homography);
+            if (world.size() == 1) {
+                xWorld = -world[0].x;
+                yWorld = -world[0].y;
+
+                // World -> robot base coordinates (translation only).
+                xRobot = xWorld - ROBOT_X;
+                yRobot = yWorld - ROBOT_Y;
+                distance = std::hypot(xRobot, yRobot);
+
+                inReach = std::isfinite(xWorld) && std::isfinite(yWorld)
+                       && std::isfinite(distance)
+                       && distance >= std::fabs(L1 - L2)
+                       && distance <= L1 + L2;
+
+                if (frameIndex % 10 == 0) {
+                    std::cout << "[BALL] world=(" << xWorld << ", " << yWorld
+                              << ") cm; robot=(" << xRobot << ", " << yRobot
+                              << ") cm; d=" << distance << " cm; "
+                              << (inReach ? "IN REACH" : "OUT OF REACH") << '\n';
+                }
+            }
+        }
+
+        // 3) One motor command when the ball enters the reachable region.
+        // No X<0 restriction anymore.
+        if (inReach) {
+            inReachFrames++;
+            outsideFrames = 0;
+        } else {
+            inReachFrames = 0;
+            outsideFrames++;
+            if (outsideFrames >= FRAMES_TO_REARM) targetSent = false;
+        }
+
+        if (motorsArmed && homographyReady && inReach && !targetSent &&
+            inReachFrames >= MIN_CONSECUTIVE_FRAMES) {
+            std::vector<float> ik = computeInverseKinematics(xRobot, yRobot, L1, L2);
+            if (ik.size() >= 3 && std::isfinite(ik[1]) && std::isfinite(ik[2])) {
+                std::vector<float> target = {ik[1], qpen, ik[2]};
+                std::cout << "[ROBOT] Motor command requested for robot frame: ("
+                          << xRobot << ", " << yRobot << ") cm\n";
+                dxl.sendTargetJointPosition(target);
+                targetSent = true;
+            } else {
+                std::cerr << "[WARNING] No valid inverse kinematics solution.\n";
+            }
+        }
+
+        std::string message;
+        if (!homographyReady) message = "Waiting for initial 4 ArUco markers";
+        else if (!ballDetected) message = "Waiting for ball";
+        else if (!inReach) message = "Ball outside robot workspace";
+        else if (!motorsArmed) message = "IN REACH - press M to arm motors";
+        else if (targetSent) message = "Command issued - waiting for next entry";
+        else message = "Ball reachable - ready";
+
+        cv::putText(screen, message, cv::Point(10, 30),
+                    cv::FONT_HERSHEY_SIMPLEX, 0.55, cv::Scalar(0, 255, 255), 2);
+        cv::putText(screen, "M: arm/disarm  C: recalibrate  ESC: exit",
+                    cv::Point(10, 55), cv::FONT_HERSHEY_SIMPLEX,
+                    0.45, cv::Scalar(255, 255, 255), 1);
+        cv::imshow("RobotServoing", screen);
+        cv::imshow("Thresholded Image", mask);
+
+        int key = cv::waitKey(static_cast<int>(1000.0 / FPS));
+        if (key == 27) break;
+        if (key == 'u' && calibrated) {
+            if (!homographyReady) undistort = !undistort;
+            else std::cout << "[WARN] Press C while disarmed before changing calibration.\n";
+        }
+        if (key == 'c') {
+            if (motorsArmed) {
+                std::cout << "[WARN] Disarm motors with M before recalibration.\n";
+            } else {
+                homography.release();
+                homographyReady = false;
+                targetSent = false;
+                inReachFrames = 0;
+                outsideFrames = 0;
+                std::cout << "[CALIB] Cleared. Waiting for 4 ArUco markers.\n";
+            }
+        }
+        if (key == 'm') {
+            motorsArmed = !motorsArmed;
+            dxl.enableTorque(motorsArmed);
+            targetSent = false;
+            inReachFrames = 0;
+            std::cout << (motorsArmed ? "[INFO] MOTORS ARMED\n"
+                                      : "[INFO] MOTORS DISARMED\n");
+        }
+    }
+
+    dxl.enableTorque(false);
+    dxl.closePort();
+    camera.release();
+    cv::destroyAllWindows();
+    return 0;
 }
 
-
-int main(int argc, char** argv)
-{
-	// initializes main parameters
-	float L1 = ROBOT_L1;
-	float L2 = ROBOT_L2;
-	float qpen = deg2rad(-90); // in rad
-	std::string sCameraParamFilename = CAM_PARAMS_FILENAME;
-	std::string sColorParamFilename = COLOR_PARAMS_FILENAME;
-	float fFPS = FPS;
-	int iStructuralElementSize = STRUCTURAL_ELEMENTS_SIZE;
-	int iAreaThresold = AREA_THRESOLD;
-	
-	// updates main parameters from arguments
-	int opt;
-	while ((opt = getopt (argc, argv, ":c:f:s:a:i:p:l:m:")) != -1)
-	{
-		switch (opt)
-		{
-			case 'c':
-				sColorParamFilename = optarg;
-				break;
-			case 'f':
-				fFPS = atof(optarg); 
-				break;
-			case 'p':
-				qpen = atof(optarg); 
-				break;
-			case 'l':
-				L1 = atof(optarg); 
-				break;
-			case 'm':
-				L2 = atof(optarg); 
-				break;
-			case 's':
-				iStructuralElementSize = atoi(optarg);
-				break;
-			case 'a':
-				iAreaThresold = atoi(optarg);
-				break;
-			case 'i':
-				sCameraParamFilename = optarg;
-				break;
-			case '?':
-				if (optopt == 'c' || optopt == 'f' || optopt == 's' || optopt == 'a' || optopt == 'p' || optopt == 'l' || optopt == 'm' || optopt == 'i')
-					fprintf (stderr, "Option -%c requires an argument.\n", optopt);
-				else if (isprint (optopt))
-					fprintf (stderr, "Unknown option `-%c'.\n", optopt);
-				else
-					fprintf (stderr, "Unknown option character `\\x%x'.\n", optopt);
-				return 1;
-			default:
-				abort ();
-		}
-	}
-	
-	// Initializes the robot
-	initRobot(_oDxlHandler, _robotDxlPortName, _robotDxlProtocol, _robotDxlBaudRate);
-	
-	
-	// reads color parameters from the file storage
-	int iLowH, iHighH, iLowS, iHighS, iLowV, iHighV;
-	bool isColorParamsSet = readColorParameters(sColorParamFilename, iLowH, iHighH, iLowS, iHighS, iLowV, iHighV);
-	
-	// checks if the color parameters were successfully read
-	if (!isColorParamsSet)
-	{
-		std::cout << "[ERROR] Color parameters could not be loaded!" << std::endl;
-		return -1;
-	}
-	
-	// distorted/undistorted image
-	bool bIsImageUndistorted = true;
-	
-	// reads camera intrinsic parameters
-	cv::Mat cameraMatrix, distCoeffs;
-	bool isCamParamsSet = readCameraParameters(sCameraParamFilename, cameraMatrix, distCoeffs);
-	
-	// checks if the camera parameters were successfully read
-	if (!isCamParamsSet)
-	{
-		std::cout << "[WARNING] Camera intrinsic parameters could not be loaded!" << std::endl;
-	}
-	 
-	// creates a camera grabber
-	VideoCapture cap(0, cv::CAP_V4L2); //capture the video from webcam
-	
-	// checks if the camera was successfully opened
-	if ( !cap.isOpened() )  // if not success, exit program
-	{
-		cout << "[ERROR] Could not open the camera!" << endl;
-		return -1;
-	}
-
-	// inits previous x,y location of the ball
-	int iLastX = -1; 
-	int iLastY = -1;
-
-	// captures a temporary image from the camera
-	Mat imgTmp;
-	cap.read(imgTmp); 
-
-	// main loop launched every FPS
-	while (true)
-	{
-		// creates a black image with the size as the camera output
-		Mat imgLines = Mat::zeros( imgTmp.size(), CV_8UC3 );
-		
-		// reads a new frame from video
-		cv::Mat imgOriginal;
-		bool bSuccess = cap.read(imgOriginal);
-
-		// checks if a new frame was grabbed
-		if (!bSuccess) //if not success, break loop
-		{
-			std::cout << "[WARNING] Could not read a new frame from video stream" << std::endl;
-			break;
-		}
-		
-		if (bIsImageUndistorted && isCamParamsSet)
-		{
-			cv::Mat temp = imgOriginal.clone();
-			cv::undistort(temp, imgOriginal, cameraMatrix, distCoeffs);
-		}
-
-		// converts the captured frame from BGR to HSV
-		cv::Mat imgHSV;
-		cvtColor(imgOriginal, imgHSV, cv::COLOR_BGR2HSV); 
-
-		// thresholds the image based on the trackbar values
-		cv::Mat imgThresholded;
-		inRange(imgHSV, cv::Scalar(iLowH, iLowS, iLowV), cv::Scalar(iHighH, iHighS, iHighV), imgThresholded); 
-
-		// applies morphological opening (removes small objects from the foreground)
-		cv::erode(imgThresholded, imgThresholded, getStructuringElement(MORPH_ELLIPSE, Size(iStructuralElementSize, iStructuralElementSize)) );
-		cv::dilate( imgThresholded, imgThresholded, getStructuringElement(MORPH_ELLIPSE, Size(iStructuralElementSize, iStructuralElementSize)) ); 
-
-		// applies morphological closing (removes small holes from the foreground)
-		cv::dilate( imgThresholded, imgThresholded, getStructuringElement(MORPH_ELLIPSE, Size(iStructuralElementSize, iStructuralElementSize)) ); 
-		cv::erode(imgThresholded, imgThresholded, getStructuringElement(MORPH_ELLIPSE, Size(iStructuralElementSize, iStructuralElementSize)) );
-
-		// calculates the moments of the thresholded image
-		Moments oMoments = moments(imgThresholded);
-		double dM01 = oMoments.m01;
-		double dM10 = oMoments.m10;
-		double dArea = oMoments.m00;
-
-		// if the area <= iAreaThresold, considers that the there are no object in the image and it's because of the noise, the area is not zero 
-		int posX, posY;
-		
-		if (dArea > iAreaThresold)
-		{
-			// calculates the position of the ball
-			posX = dM10 / dArea;
-			posY = dM01 / dArea;        
-
-			if (iLastX >= 0 && iLastY >= 0 && posX >= 0 && posY >= 0)
-			{
-				// draww a red line from the previous point to the current point
-				line(imgLines, Point(posX, posY), Point(iLastX, iLastY), Scalar(0,0,255), 2);
-			}
-
-			// stores the current position for enxt frame
-			iLastX = posX;
-			iLastY = posY;
-		}
-
-		// displays the thresholded image
-		imshow("Thresholded Image", imgThresholded); 
-
-		// adds a cross at the centre of the image
-		cv::drawMarker(imgOriginal, cv::Point(imgTmp.size().width/2, imgTmp.size().height/2), 10, cv::MARKER_CROSS, cv::LINE_8);
-		
-		// shows the original image with the tracking (red) lines
-		imgOriginal = imgOriginal + imgLines;
-		imshow("Original", imgOriginal); 
-		
-		// converts posX, posY in mm in the world reference frame
-		float img_width = imgTmp.size().width;
-		float img_height = imgTmp.size().height;
-//		float x = (posY-img_height/2)/img_height*HEIGHT2CM; 
-//		float y = (posX-img_width/2)/img_width*WIDTH2CM; 
-float x = 5.0f;
-float y = 0.0f;
-
-		
-		std::cout << "(pixel -> cm) = (" << posX << ", " << posY << ") - > (" << x << ", " << y << ")" << std::endl;
-		
-		// Computes IK
-		std::vector<float> qi = computeInverseKinematics(x, y, L1, L2);
-		
-		// Computes FK
-		//computeForwardKinematics(qi[1], qi[2], L1, L2);
-	
-		// Sends the target joint values received only if there is at least a solution
-		if (qi.size() >= 3)
-		{
-			std::vector<float> vTargetJointPosition;
-				vTargetJointPosition.push_back(qi[1]); 
-				vTargetJointPosition.push_back(qpen); 
-				vTargetJointPosition.push_back(qi[2]); 
-			_oDxlHandler.sendTargetJointPosition(vTargetJointPosition);
-		}
-
-		// waits for awhile depending on the FPS value
-		char key = (char)cv::waitKey(1000.0/fFPS);
-		// checks if ESC was pressed to exit
-		if (key == 27) // if 'esc' key is pressed, break loop
-		{
-			std::cout << "[INFO] esc key is pressed by user -> Shutting down!" << std::endl;
-			break; 
-		}
-		if (key == 'u')
-		{
-			bIsImageUndistorted = !bIsImageUndistorted;
-			std::cout << "[INFO] Image undistorted: " <<  bIsImageUndistorted<< std::endl;
-		}
-	}
-	
-	
-	
-	
-		
-	
-	// Closes robot connection
-	_oDxlHandler.closePort();
-		
-	return 0;
-}
