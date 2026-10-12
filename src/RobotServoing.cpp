@@ -13,7 +13,7 @@
 #include "Kinematics.h"
 #include "DynamixelHandler.h"
 
-#define CAM_PARAMS_FILENAME "./data/microsoft_livecam_hd3000.xml"
+#define CAM_PARAMS_FILENAME "./data/camera_calibration_params.xml"
 #define COLOR_PARAMS_FILENAME "./data/color_params_data.xml"
 #define FPS 30.0
 #define STRUCTURAL_ELEMENTS_SIZE 5
@@ -265,8 +265,11 @@ int main(int argc, char** argv)
 		// converts posX, posY in mm in the world reference frame
 		float img_width = imgTmp.size().width;
 		float img_height = imgTmp.size().height;
-		float x = (posY-img_height/2)/img_height*HEIGHT2CM; 
-		float y = (posX-img_width/2)/img_width*WIDTH2CM; 
+//		float x = (posY-img_height/2)/img_height*HEIGHT2CM; 
+//		float y = (posX-img_width/2)/img_width*WIDTH2CM; 
+float x = 5.0f;
+float y = 0.0f;
+
 		
 		std::cout << "(pixel -> cm) = (" << posX << ", " << posY << ") - > (" << x << ", " << y << ")" << std::endl;
 		

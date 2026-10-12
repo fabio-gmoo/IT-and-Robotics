@@ -1,3 +1,9 @@
+#include "Kinematics.h"
+#include "DynamixelHandler.h"
+
+#define ROBOT_L1 5
+#define ROBOT_L2 6
+
 #include <opencv2/aruco.hpp>
 #include <opencv2/calib3d.hpp>
 #include <opencv2/highgui/highgui.hpp>
@@ -19,6 +25,11 @@
 using namespace cv;
 using namespace std;
 
+DynamixelHandler _oDxlHandler;
+
+std::string _robotDxlPortName = "/dev/ttyUSB0";
+float _robotDxlProtocol = 2.0;
+int _robotDxlBaudRate = 1000000;
 
 // ==============================
 // READ CAMERA PARAMETERS
