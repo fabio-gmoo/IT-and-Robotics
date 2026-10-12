@@ -17,13 +17,17 @@ TARGETS_ROBOT = $(BIN_DIR)/interactive_test \
                 $(BIN_DIR)/main_robot_test \
                 $(BIN_DIR)/joystick_teleop
 
+TARGETS_GUI = $(BIN_DIR)/test_gui
+
 TARGETS_SERVOING = $(BIN_DIR)/RobotServoing
 
-all: $(TARGETS_VISION) $(TARGETS_SERVOING)
+all: $(TARGETS_VISION) $(TARGETS_ROBOT) $(TARGETS_GUI) $(TARGETS_SERVOING)
 
 vision: $(TARGETS_VISION)
 robot: $(TARGETS_ROBOT)
+gui: $(TARGETS_GUI)
 
+# --- MODULO VISION (Bastien) ---
 $(BIN_DIR)/CameraCalibration: $(SRC_DIR)/CameraCalibration.cpp
 	@mkdir -p $(BIN_DIR)
 	$(CXX) $(CXXFLAGS) $< -o $@ $(LDFLAGS_CV)
@@ -44,6 +48,7 @@ $(BIN_DIR)/ChessboardOrientationTracking: $(SRC_DIR)/ChessboardOrientationTracki
 	@mkdir -p $(BIN_DIR)
 	$(CXX) $(CXXFLAGS) $< -o $@ $(LDFLAGS_CV)
 
+# --- MODULO ROBOT / CINEMATICA / JOYSTICK (Valeria) ---
 $(BIN_DIR)/interactive_test: $(SRC_DIR)/interactive_test.cpp $(INC_DIR)/pong_robot.hpp
 	@mkdir -p $(BIN_DIR)
 	$(CXX) $(CXXFLAGS) $< -o $@ $(LDFLAGS_DXL)
@@ -56,6 +61,12 @@ $(BIN_DIR)/joystick_teleop: $(SRC_DIR)/joystick_teleop.cpp $(INC_DIR)/pong_robot
 	@mkdir -p $(BIN_DIR)
 	$(CXX) $(CXXFLAGS) $< -o $@ $(LDFLAGS_DXL)
 
+# --- MODULO GUI ARCADE (Fabio) ---
+$(BIN_DIR)/test_gui: $(SRC_DIR)/game_gui.cpp $(SRC_DIR)/test_gui.cpp $(INC_DIR)/game_gui.hpp $(INC_DIR)/score_manager.hpp
+	@mkdir -p $(BIN_DIR)
+	$(CXX) $(CXXFLAGS) $(SRC_DIR)/game_gui.cpp $(SRC_DIR)/test_gui.cpp -o $@ $(LDFLAGS_CV)
+
+# --- MODULO SERVOCONTROL INTEGRADO ---
 $(BIN_DIR)/RobotServoing: $(SRC_DIR)/RobotServoing.cpp $(SRC_DIR)/Kinematics.cpp $(SRC_DIR)/DynamixelHandler.cpp
 	@mkdir -p $(BIN_DIR)
 	$(CXX) $(CXXFLAGS) $(SRC_DIR)/RobotServoing.cpp $(SRC_DIR)/Kinematics.cpp $(SRC_DIR)/DynamixelHandler.cpp -o $@ $(LDFLAGS_DXL) $(LDFLAGS_CV)
