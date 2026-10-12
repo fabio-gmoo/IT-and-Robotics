@@ -1,33 +1,65 @@
-all:  CameraCalibration RedBallDetection RedBallTracking Kinematics Dxl Servoing ChessboardOrientationTracking
-	g++ lib/CameraCalibration.o -o bin/CameraCalibration -L/usr/lib/x86_64-linux-gnu -lopencv_core -lopencv_highgui -lopencv_imgproc -lopencv_aruco -lopencv_videoio -lopencv_objdetect -lopencv_imgcodecs -lopencv_features2d -lopencv_calib3d
-	g++ lib/RedBallDetection.o -o bin/RedBallDetection -L/usr/lib/x86_64-linux-gnu -lopencv_core -lopencv_highgui -lopencv_imgproc -lopencv_aruco -lopencv_videoio -lopencv_objdetect -lopencv_imgcodecs -lopencv_features2d -lopencv_calib3d
-	g++ lib/RedBallTracking.o -o bin/RedBallTracking -L/usr/lib/x86_64-linux-gnu -lopencv_core -lopencv_highgui -lopencv_imgproc -lopencv_aruco -lopencv_videoio -lopencv_objdetect -lopencv_imgcodecs -lopencv_features2d -lopencv_calib3d
-	g++ -o bin/RobotServoing lib/RobotServoing.o lib/Kinematics.o lib/DynamixelHandler.o -L/usr/local/lib/ -ldxl_x64_cpp -lrt -L/usr/lib/x86_64-linux-gnu `pkg-config --libs opencv4`
-	g++ lib/ChessboardOrientationTracking.o -o bin/ChessboardOrientationTracking -L/usr/lib/x86_64-linux-gnu -lopencv_core -lopencv_highgui -lopencv_imgproc -lopencv_aruco -lopencv_videoio -lopencv_objdetect -lopencv_imgcodecs -lopencv_features2d -lopencv_calib3d
-MonoCameraCalibration: src/MonoCameraCalibration.cpp src/ReadWriteFunctions.cpp include/ReadWriteFunctions.h
-	g++ src/MonoCameraCalibration.cpp src/ReadWriteFunctions.cpp -Iinclude -o bin/MonoCameraCalibration $(shell pkg-config --cflags --libs opencv4)
-	
-CameraCalibration: src/CameraCalibration.cpp
-	g++ -c src/CameraCalibration.cpp -o lib/CameraCalibration.o -I./include -I/usr/include/opencv4
-	
-RedBallDetection: src/RedBallDetection.cpp
-	g++ -c src/RedBallDetection.cpp -o lib/RedBallDetection.o -I./include -I/usr/include/opencv4
-	
-RedBallTracking: src/RedBallTracking.cpp
-	g++ -c src/RedBallTracking.cpp -o lib/RedBallTracking.o -I./include -I/usr/include/opencv4
-	
-Kinematics: src/Kinematics.cpp
-	g++ -c src/Kinematics.cpp -o lib/Kinematics.o -I./include -I/usr/include/opencv4
+CXX = g++
+CXXFLAGS = -O2 -Wall -Iinclude -I/usr/local/include/dynamixel_sdk $(shell pkg-config --cflags opencv4)
+LDFLAGS_CV = $(shell pkg-config --libs opencv4)
+LDFLAGS_DXL = -ldxl_x64_cpp -lpthread -lrt
 
-Dxl: src/DynamixelHandler.cpp
-	g++ -c src/DynamixelHandler.cpp -o lib/DynamixelHandler.o -I./include -I/usr/local/include
-	
-Servoing: src/RobotServoing.cpp
-	g++ -c src/RobotServoing.cpp -o lib/RobotServoing.o -I./include -I/usr/include/opencv4
+BIN_DIR = bin
+SRC_DIR = src
+INC_DIR = include
 
-ChessboardOrientationTracking: src/ChessboardOrientationTracking.cpp
-	g++ -c src/ChessboardOrientationTracking.cpp -o lib/ChessboardOrientationTracking.o -I./include -I/usr/include/opencv4
+TARGETS_VISION = $(BIN_DIR)/CameraCalibration \
+                 $(BIN_DIR)/MonoCameraCalibration \
+                 $(BIN_DIR)/RedBallDetection \
+                 $(BIN_DIR)/RedBallTracking \
+                 $(BIN_DIR)/ChessboardOrientationTracking
+
+TARGETS_ROBOT = $(BIN_DIR)/interactive_test \
+                $(BIN_DIR)/main_robot_test \
+                $(BIN_DIR)/joystick_teleop
+
+TARGETS_SERVOING = $(BIN_DIR)/RobotServoing
+
+all: $(TARGETS_VISION) $(TARGETS_SERVOING)
+
+vision: $(TARGETS_VISION)
+robot: $(TARGETS_ROBOT)
+
+$(BIN_DIR)/CameraCalibration: $(SRC_DIR)/CameraCalibration.cpp
+	@mkdir -p $(BIN_DIR)
+	$(CXX) $(CXXFLAGS) $< -o $@ $(LDFLAGS_CV)
+
+$(BIN_DIR)/MonoCameraCalibration: $(SRC_DIR)/MonoCameraCalibration.cpp $(SRC_DIR)/ReadWriteFunctions.cpp $(INC_DIR)/ReadWriteFunctions.h
+	@mkdir -p $(BIN_DIR)
+	$(CXX) $(CXXFLAGS) $(SRC_DIR)/MonoCameraCalibration.cpp $(SRC_DIR)/ReadWriteFunctions.cpp -o $@ $(LDFLAGS_CV)
+
+$(BIN_DIR)/RedBallDetection: $(SRC_DIR)/RedBallDetection.cpp
+	@mkdir -p $(BIN_DIR)
+	$(CXX) $(CXXFLAGS) $< -o $@ $(LDFLAGS_CV)
+
+$(BIN_DIR)/RedBallTracking: $(SRC_DIR)/RedBallTracking.cpp
+	@mkdir -p $(BIN_DIR)
+	$(CXX) $(CXXFLAGS) $< -o $@ $(LDFLAGS_CV)
+
+$(BIN_DIR)/ChessboardOrientationTracking: $(SRC_DIR)/ChessboardOrientationTracking.cpp
+	@mkdir -p $(BIN_DIR)
+	$(CXX) $(CXXFLAGS) $< -o $@ $(LDFLAGS_CV)
+
+$(BIN_DIR)/interactive_test: $(SRC_DIR)/interactive_test.cpp $(INC_DIR)/pong_robot.hpp
+	@mkdir -p $(BIN_DIR)
+	$(CXX) $(CXXFLAGS) $< -o $@ $(LDFLAGS_DXL)
+
+$(BIN_DIR)/main_robot_test: $(SRC_DIR)/main_robot_test.cpp $(INC_DIR)/pong_robot.hpp
+	@mkdir -p $(BIN_DIR)
+	$(CXX) $(CXXFLAGS) $< -o $@ $(LDFLAGS_DXL)
+
+$(BIN_DIR)/joystick_teleop: $(SRC_DIR)/joystick_teleop.cpp $(INC_DIR)/pong_robot.hpp
+	@mkdir -p $(BIN_DIR)
+	$(CXX) $(CXXFLAGS) $< -o $@ $(LDFLAGS_DXL)
+
+$(BIN_DIR)/RobotServoing: $(SRC_DIR)/RobotServoing.cpp $(SRC_DIR)/Kinematics.cpp $(SRC_DIR)/DynamixelHandler.cpp
+	@mkdir -p $(BIN_DIR)
+	$(CXX) $(CXXFLAGS) $(SRC_DIR)/RobotServoing.cpp $(SRC_DIR)/Kinematics.cpp $(SRC_DIR)/DynamixelHandler.cpp -o $@ $(LDFLAGS_DXL) $(LDFLAGS_CV)
 
 clean:
-	rm lib/*.o
-	rm bin/*
+	rm -rf $(BIN_DIR)/* $(SRC_DIR)/*.o lib/*.o
+	@touch $(BIN_DIR)/.gitkeep lib/.gitkeep

@@ -1,17 +1,20 @@
-# Binarios y carpetas de compilación
+# Binarios y carpetas de salida
 bin/*
 !bin/.gitkeep
+
+# Archivos objeto y librerias
+lib/*
+!lib/.gitkeep
 *.o
 *.so
 *.a
 
-# Archivos de respaldo y editores
-*~
+# Editores y sistema operativo
 .vscode/
 .idea/
 *.swp
-
-# Archivos de log y sistema
-*.log
+*~
 .DS_Store
-lib/*.o
+
+# Logs
+*.log
