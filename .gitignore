@@ -18,3 +18,4 @@ lib/*
 
 # Logs
 *.log
+data/scores.csv
