@@ -7,10 +7,12 @@
 #include <unistd.h>
 #include "dynamixel_sdk/dynamixel_sdk.h"
 
+// Communication and Protocol Configuration
 #define PROTOCOL_VERSION      2.0
 #define BAUDRATE              1000000
 #define DEVICENAME            "/dev/ttyUSB0"
 
+// ROBOTIS Dynamixel XL-320 Control Table Addresses
 #define ADDR_TORQUE_ENABLE    24
 #define ADDR_GOAL_POSITION    30
 #define TORQUE_ENABLE         1
@@ -44,7 +46,7 @@ public:
 
     bool init() {
         if (!portHandler->openPort() || !portHandler->setBaudRate(BAUDRATE)) {
-            std::cerr << "[-] Error abriendo puerto serial " << DEVICENAME << std::endl;
+            std::cerr << "[-] Error opening serial port: " << DEVICENAME << std::endl;
             return false;
         }
 
@@ -53,11 +55,11 @@ public:
         enableTorque(id3); usleep(15000);
         enableTorque(id4); usleep(15000);
 
-        std::cout << "[+] Robot inicializado correctamente." << std::endl;
+        std::cout << "[+] Robot initialized successfully." << std::endl;
         return true;
     }
 
-    // Conversión a ticks (512 = centro / 0 rad):
+    // Joint angle to actuator ticks conversion (512 ticks = 0 rad center reference)
     int radToTicksBase(double rad) {
         double deg = rad * (180.0 / M_PI);
         return std::clamp(static_cast<int>(512 + (deg * (1023.0 / 300.0))), 0, 1023);
@@ -73,17 +75,16 @@ public:
         return std::clamp(static_cast<int>(512 - (deg * (1023.0 / 300.0))), 0, 1023);
     }
 
-    // Cinemática analítica continua para pala paralela (gamma = 0)
+    // Continuous analytical Inverse Kinematics for a parallel paddle (gamma = 0 rad)
     bool computeIK(double x, double y, double gamma_rad, double &q1, double &q2, double &q3) {
-        // En nuestro convenio, x3 es lateral (-izq, +der) e y3 es frontal
-        // Con gamma = 0, la pala está paralela a la portería (eje x0)
+        // Lateral coordinate x3 and longitudinal reach y3 discounted by link L3
         double x3 = x;
         double y3 = y - L3;
 
         double r2 = x3 * x3 + y3 * y3;
         double r = std::sqrt(r2);
 
-        // Límite geométrico de los 2 primeros eslabones (L1 + L2 = 10.5 cm)
+        // Planar reachability boundaries for links L1 and L2
         if (r > (L1 + L2 - 0.05) || r < std::abs(L1 - L2) + 0.1) {
             return false;
         }
@@ -92,18 +93,18 @@ public:
         cos_alpha = std::clamp(cos_alpha, -1.0, 1.0);
         double alpha = std::acos(cos_alpha);
 
-        // Flexión del codo (q2 = 0 cuando está extendido)
+        // Elbow joint angle q2 (0 rad indicates full straight extension)
         q2 = -(M_PI - alpha);
 
         double sin_beta = (L2 * std::sin(alpha)) / r;
         sin_beta = std::clamp(sin_beta, -1.0, 1.0);
         double beta = std::asin(sin_beta);
 
-        // Ángulo de la base continuo (-x3 para que girar a la izq sea positivo)
+        // Continuous base yaw angle q1 (+angle turns counter-clockwise / left)
         double theta = std::atan2(-x3, y3);
         q1 = theta + beta;
 
-        // Compensación de orientación: mantiene la pala estrictamente paralela al eje x0
+        // Active wrist compensation: keeps paddle parallel to transverse axis x0
         q3 = gamma_rad - q1 - q2;
 
         return true;
