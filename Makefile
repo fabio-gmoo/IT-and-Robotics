@@ -40,9 +40,9 @@ $(BIN_DIR)/RedBallDetection: $(SRC_DIR)/RedBallDetection.cpp
 	@mkdir -p $(BIN_DIR)
 	$(CXX) $(CXXFLAGS) $< -o $@ $(LDFLAGS_CV)
 
-$(BIN_DIR)/RedBallTracking: $(SRC_DIR)/RedBallTracking.cpp
+$(BIN_DIR)/RedBallTracking: $(SRC_DIR)/RedBallTracking.cpp $(SRC_DIR)/DynamixelHandler.cpp
 	@mkdir -p $(BIN_DIR)
-	$(CXX) $(CXXFLAGS) $< -o $@ $(LDFLAGS_CV)
+	$(CXX) $(CXXFLAGS) $(SRC_DIR)/RedBallTracking.cpp $(SRC_DIR)/DynamixelHandler.cpp -o $@ $(LDFLAGS_DXL) $(LDFLAGS_CV)
 
 $(BIN_DIR)/ChessboardOrientationTracking: $(SRC_DIR)/ChessboardOrientationTracking.cpp
 	@mkdir -p $(BIN_DIR)
@@ -74,3 +74,7 @@ $(BIN_DIR)/RobotServoing: $(SRC_DIR)/RobotServoing.cpp $(SRC_DIR)/Kinematics.cpp
 clean:
 	rm -rf $(BIN_DIR)/* $(SRC_DIR)/*.o lib/*.o
 	@touch $(BIN_DIR)/.gitkeep lib/.gitkeep
+
+$(BIN_DIR)/RedBallTracking: $(SRC_DIR)/RedBallTracking.cpp $(SRC_DIR)/DynamixelHandler.cpp
+	@mkdir -p $(BIN_DIR)
+	$(CXX) $(CXXFLAGS) $(SRC_DIR)/RedBallTracking.cpp $(SRC_DIR)/DynamixelHandler.cpp -o $@ $(LDFLAGS_DXL) $(LDFLAGS_CV)

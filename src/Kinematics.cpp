@@ -31,7 +31,7 @@ std::vector<float> computeInverseKinematics(float x, float y, float L1, float L2
 	
 	std::cout << "[INFO] cos_q2= " << cos_q2 << std::endl;
 	
-	if (cos_q2 >1 | cos_q2 <-1)
+	if (cos_q2 >1 || cos_q2 < -1)
 	{
 		qi.push_back(0.0);
 		std::cout << "[INFO] Inverse Kinematics: No solution!" << std::endl;
