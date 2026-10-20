@@ -118,10 +118,10 @@ public:
         int t3 = radToTicksElbow(q2);
         int t4 = radToTicksWrist(q3);
 
-        writePosition(id2, fixed_shoulder); usleep(10000);
-        writePosition(id1, t1);             usleep(10000);
-        writePosition(id3, t3);             usleep(10000);
-        writePosition(id4, t4);             usleep(10000);
+        writePosition(id2, fixed_shoulder); usleep(3000);
+        writePosition(id1, t1);             usleep(3000);
+        writePosition(id3, t3);             usleep(3000);
+        writePosition(id4, t4);             usleep(3000);
         return true;
     }
 

@@ -12,7 +12,7 @@
 #include <cmath>
 
 // Configuration Constants
-constexpr float ROBOT_X = 24.0f; // Distancia corregida: 24 cm desde el centro de la cancha
+constexpr float ROBOT_X = 24.0f; 
 constexpr float ROBOT_Y = 0.0f;
 constexpr int MIN_BALL_PIXELS = 150;
 constexpr double FPS = 30.0;
@@ -20,7 +20,6 @@ constexpr double FPS = 30.0;
 const std::string COLOR_FILE = "./data/color_params_data.xml";
 const std::string CAMERA_FILE = "./data/camera_calibration_params.xml";
 
-// ArUco Markers world coordinates for table mapping
 const std::vector<cv::Point2f> WORLD_MARKERS = {
     {-20.4f,  8.15f}, {20.4f,  8.15f},
     {-20.4f, -8.15f}, {20.4f, -8.15f}
@@ -59,7 +58,6 @@ bool sortedArUcoCenters(const std::vector<std::vector<cv::Point2f>> &corners, st
 }
 
 int main() {
-    // 1. Initialize Valeria's Kinematics & Dynamixel Control
     PongRobot robot(5.0, 5.5, 6.3, 1, 2, 3, 4);
     if (!robot.init()) {
         std::cerr << "[-] Failed to initialize Dynamixel motors. Check USB permissions." << std::endl;
@@ -72,7 +70,6 @@ int main() {
     std::cout << "[+] Moving to home defense position..." << std::endl;
     robot.moveToPlanar(0.0, 13.5, GAMMA_PARALLEL, FIXED_SHOULDER);
 
-    // 2. Load Vision Parameters
     int loH = 0, hiH = 0, loS = 0, hiS = 0, loV = 0, hiV = 0;
     if (!readColorParameters(loH, hiH, loS, hiS, loV, hiV)) {
         std::cerr << "[-] Error: Could not read color parameters." << std::endl;
@@ -98,7 +95,7 @@ int main() {
     auto last_motor_update = std::chrono::steady_clock::now();
 
     std::cout << "\n=======================================================" << std::endl;
-    std::cout << "  AUTONOMOUS VISUAL SERVOING ACTIVE                    " << std::endl;
+    std::cout << "  AUTONOMOUS GOALIE + WORKING SMASH [22.5 - 24.0 cm]    " << std::endl;
     std::cout << "  - Show 4 ArUco markers to map the table              " << std::endl;
     std::cout << "  - Press 'M' to arm/disarm robot movement             " << std::endl;
     std::cout << "  - Press 'ESC' to exit                                " << std::endl;
@@ -116,7 +113,6 @@ int main() {
         
         cv::Mat screen = frame.clone();
 
-        // ArUco Table Calibration
         if (!homographyReady) {
             std::vector<int> markerIds;
             std::vector<std::vector<cv::Point2f>> markerCorners;
@@ -136,7 +132,6 @@ int main() {
             }
         }
 
-        // Ball Color Detection
         cv::Mat hsv, mask;
         cv::cvtColor(frame, hsv, cv::COLOR_BGR2HSV);
         cv::inRange(hsv, cv::Scalar(loH, loS, loV), cv::Scalar(hiH, hiS, hiV), mask);
@@ -176,28 +171,36 @@ int main() {
             cv::perspectiveTransform(std::vector<cv::Point2f>{pixel}, world, homography);
 
             if (world.size() == 1) {
-                // Coordenadas del mundo (Cancha)
-                float ball_X = world[0].x; // Eje largo de la mesa
-                float ball_Y = world[0].y; // Eje ancho de la mesa
+                float ball_X = world[0].x;
+                float ball_Y = world[0].y;
 
-                // CORRECCIÓN: Mapeo exacto a tu Cinemática (Valeria's IK)
-                // Tu robot tiene la "Y" hacia adelante y la "X" a los lados.
-                // Si el robot está a 24 cm del centro, la distancia hacia adelante es 24 - posición_bola
-                double target_y = ROBOT_X - ball_X; 
-                double target_x = ball_Y;           
+                // 1. Seguimiento lateral exclusivo en el eje X (±7.0 cm)
+                double target_x = ball_Y; 
+                target_x = std::clamp(target_x, -7.0, 7.0);
 
-                // Safety Clamp para proteger los límites físicos
-                target_x = std::clamp(target_x, -4.2, 4.2);
-                target_y = std::clamp(target_y, 11.5, 16.5);
+                // 2. Línea base fija de defensa en el eje Y
+                double target_y = 13.5; 
+
+                // 3. ZONA DE SMASH: [22.5 - 24.0 cm] con estocada segura a Y = 16.5 cm (dentro del reach de 16.8 cm)
+                bool is_smash = (ball_X >= 22.5f && ball_X <= 24.0f);
+                if (is_smash) {
+                    target_y = 16.5f; 
+                }
+
+                // 4. Límite de seguridad estricto en Y dentro del workspace físico
+                target_y = std::clamp(target_y, 10.5, 16.8);
+
+                // DEBUG EN TERMINAL
+                std::cout << "[DEBUG] Ball(X=" << ball_X << ", Y=" << ball_Y << ") "
+                          << "| Target(X=" << target_x << ", Y=" << target_y << ") "
+                          << (is_smash ? " >>> [SMASH ACTIVE!]" : "") << std::endl;
+
                 inReach = true;
 
-                // Log para ver exactamente qué estamos mandando
-                std::cout << "[TARGET] Bola en Cancha(X,Y): " << ball_X << ", " << ball_Y 
-                          << " | Enviando al Brazo(Lat, Fwd): " << target_x << ", " << target_y << std::endl;
-
+                // 5. Actualización ultrarrápida a 2 ms
                 if (motorsArmed) {
                     auto now = std::chrono::steady_clock::now();
-                    if (std::chrono::duration_cast<std::chrono::milliseconds>(now - last_motor_update).count() >= 20) {
+                    if (std::chrono::duration_cast<std::chrono::milliseconds>(now - last_motor_update).count() >= 2) {
                         robot.moveToPlanar(target_x, target_y, GAMMA_PARALLEL, FIXED_SHOULDER);
                         last_motor_update = now;
                     }
@@ -205,7 +208,7 @@ int main() {
             }
         }
 
-        std::string status = motorsArmed ? "ARMED (Moving)" : "DISARMED (Press M)";
+        std::string status = motorsArmed ? "ARMED (Goalie + Working Smash)" : "DISARMED (Press M)";
         if (!homographyReady) status = "Show 4 ArUco Markers";
         
         cv::putText(screen, "Status: " + status, cv::Point(10, 30), cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(0, 255, 255), 2);
