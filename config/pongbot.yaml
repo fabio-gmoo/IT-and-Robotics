@@ -1,0 +1,136 @@
+%YAML:1.0
+---
+# =============================================================================
+#  PongBot - configuración (se lee al arrancar; NO hace falta recompilar)
+#  Unidades: cm, ms, cm/s.  Booleanos: 0 / 1.
+#
+#  Coordenadas de MESA (las da la homografía ArUco):
+#    X = a lo largo de la mesa (de un robot al otro), Y = a lo ancho.
+#  Coordenadas de ROBOT (cinemática de Valeria):
+#    x = lateral (-izq, +der),  y = hacia delante desde la base.
+#  Para cada brazo:  u = side * X_mesa   (u crece cuando la bola se acerca a él)
+# =============================================================================
+
+camera:
+   index: 2                     # en el PC del lab la cámara cenital era la 2
+   width: 640
+   height: 480
+   fps: 30
+   calibration_file: "./data/camera_calibration_params.xml"
+   undistort: 1
+
+vision:
+   color_file: "./data/color_params_data.xml"   # se genera con ./bin/hsv_tuner
+   min_ball_area: 150
+   min_circularity: 0.70
+   flip_x: 0
+   flip_y: 0
+   # Centros de los ArUco (cm): TL, TR, BL, BR tal como se ven en la imagen
+   markers: [ -20.4, 8.15,  20.4, 8.15,  -20.4, -8.15,  20.4, -8.15 ]
+   table_half_width: 8.15       # paredes laterales (para predecir rebotes)
+   table_half_length: 24.0      # solo dibujo / simulación
+   velocity_alpha: 0.5          # suavizado de velocidad (1 = sin suavizar)
+   lost_timeout_s: 0.3
+   predict: 1                   # IA: ir al punto de intercepción (0 = seguir Y)
+
+game:
+   points_to_win: 5
+   auto_goals: 1                # goles automáticos por visión
+   goal_frames: 3               # frames seguidos detrás de la línea de gol
+   rearm_center_u: 10.0         # tras un gol, la bola debe volver a |X| < esto
+   scores_file: "data/scores.csv"
+
+# -----------------------------------------------------------------------------
+#  Brazos. El PRIMERO es el de P1, el SEGUNDO el de P2.
+#  ids: [base, hombro(fijo), codo, muñeca]
+#  dir: sentido de giro [base, codo, muñeca]  (ticks = 512 + dir*grados*1023/300 + offset)
+# -----------------------------------------------------------------------------
+arms:
+   -
+      name: "A"
+      enabled: 1
+      port: "/dev/ttyUSB0"
+      baudrate: 1000000
+      ids: [ 1, 2, 3, 4 ]
+      shoulder_ticks: 341
+      dir: [ 1, -1, -1 ]          # convención probada en la mesa (Valeria)
+      offset: [ 0, 0, 0 ]
+      tick_min: [ 0, 0, 0 ]
+      tick_max: [ 1023, 1023, 1023 ]
+      links: [ 5.0, 5.5, 6.3 ]    # L1, L2, L3
+      gamma: 0.0
+      side: 1                     # el brazo A está en el extremo +X
+      lateral_sign: 1             # target_x = ball_Y (lo que funcionó)
+      lateral_center: 0.0
+      lateral_limit: 7.0
+      home_y: 13.5
+      recoil_y: 11.5
+      strike_y: 15.3
+      recoil_ms: 60
+      strike_ms: 120
+      return_ms: 80
+      cooldown_ms: 250
+      paddle_u: 21.0              # MEDIR: X de mesa donde está la pala en home
+      smash_trigger_u: 20.0       # antes: ball_X >= 20.0
+      smash_min_speed: 4.5        # antes: velocity_x > 0.15 cm/frame (= 4.5 cm/s)
+      smash_lead_s: 0.12
+      smash_lateral_window: 4.0
+      goal_u: 23.5
+      min_send_ms: 8
+   -
+      name: "B"
+      enabled: 1
+      # Si el brazo B está en el MISMO U2D2 que A: port "/dev/ttyUSB0" e ids distintos (p.ej. 5-8)
+      port: "/dev/ttyUSB1"
+      baudrate: 1000000
+      ids: [ 1, 2, 3, 4 ]
+      shoulder_ticks: 341
+      dir: [ 1, -1, -1 ]          # si algún motor gira al revés, cambiar su signo aquí
+      offset: [ 0, 0, 0 ]
+      tick_min: [ 0, 0, 0 ]
+      tick_max: [ 1023, 1023, 1023 ]
+      links: [ 5.0, 5.5, 6.3 ]    # MEDIR el brazo B
+      gamma: 0.0
+      side: -1                    # el brazo B está en el extremo -X (enfrente)
+      lateral_sign: -1            # mirando al revés => ball_Y se invierte
+      lateral_center: 0.0
+      lateral_limit: 7.0
+      home_y: 13.5
+      recoil_y: 11.5
+      strike_y: 15.3
+      recoil_ms: 60
+      strike_ms: 120
+      return_ms: 80
+      cooldown_ms: 250
+      paddle_u: 21.0
+      smash_trigger_u: 20.0
+      smash_min_speed: 4.5
+      smash_lead_s: 0.12
+      smash_lateral_window: 4.0
+      goal_u: 23.5
+      min_send_ms: 8
+
+# -----------------------------------------------------------------------------
+#  Joysticks (Arduino, 115200 baudios, línea "x,y" o "x1,y1,x2,y2")
+#  El primero es P1, el segundo P2. Un solo Arduino con 2 sticks:
+#  mismo device y channel 0 / 1.  device "none" = solo teclado.
+# -----------------------------------------------------------------------------
+joysticks:
+   -
+      device: "/dev/ttyACM0"
+      channel: 0
+      center: 512
+      deadzone_low: 450
+      deadzone_high: 570
+      smash_threshold: 800
+      invert_x: 0
+      max_speed: 30.0
+   -
+      device: "/dev/ttyACM1"
+      channel: 0
+      center: 512
+      deadzone_low: 450
+      deadzone_high: 570
+      smash_threshold: 800
+      invert_x: 0
+      max_speed: 30.0

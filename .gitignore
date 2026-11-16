@@ -19,3 +19,6 @@ lib/*
 # Logs
 *.log
 data/scores.csv
+
+# Objetos de compilación
+build/

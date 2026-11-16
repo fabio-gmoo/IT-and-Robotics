@@ -1,3 +1,6 @@
+// HSV tuner (antes RedBallDetection.cpp)
+// Uso: ./bin/hsv_tuner -c 2      (-c indice de camara, -o archivo de salida)
+// Mueve las barras hasta que SOLO se vea la pelota y pulsa S para guardar.
 #include <iostream>
 #include <ctype.h>
 #include <stdio.h>
@@ -8,7 +11,7 @@
 #include <opencv2/imgproc.hpp>
 #include <opencv2/calib3d.hpp>
 
-#define CAM_PARAMS_FILENAME "./data/microsoft_livecam_hd3000.xml"
+#define CAM_PARAMS_FILENAME "./data/camera_calibration_params.xml"
 #define COLOR_PARAMS_FILENAME "./data/color_params_data.xml"
 #define FPS 30.0
 #define STRUCTURAL_ELEMENTS_SIZE 5
@@ -61,7 +64,8 @@ int main(int argc, char** argv)
 	
 	// updates main parameters from arguments
 	int opt;
-	while ((opt = getopt (argc, argv, ":i:f:o:s:")) != -1)
+	int iCameraIndex = 2;
+	while ((opt = getopt (argc, argv, ":i:f:o:s:c:")) != -1)
 	{
 		switch (opt)
 		{
@@ -77,8 +81,11 @@ int main(int argc, char** argv)
 			case 's':
 				iStructuralElementSize = atoi(optarg);
 				break;
+			case 'c':
+				iCameraIndex = atoi(optarg);
+				break;
 			case '?':
-				if (optopt == 'o' || optopt == 'f' || optopt == 'i' || optopt == 's')
+				if (optopt == 'o' || optopt == 'f' || optopt == 'i' || optopt == 's' || optopt == 'c')
 					fprintf (stderr, "Option -%c requires an argument.\n", optopt);
 				else if (isprint (optopt))
 					fprintf (stderr, "Unknown option `-%c'.\n", optopt);
@@ -104,7 +111,7 @@ int main(int argc, char** argv)
 	}
 	
 	// creates a camera grabber
-	cv::VideoCapture cap(0, cv::CAP_V4L2);
+	cv::VideoCapture cap(iCameraIndex, cv::CAP_V4L2);
 	
 	// checks if the camera was successfully opened
 	if (!cap.isOpened())

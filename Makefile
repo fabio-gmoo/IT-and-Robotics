@@ -1,76 +1,88 @@
-CXX = g++
-CXXFLAGS = -O2 -Wall -Iinclude -I/usr/local/include/dynamixel_sdk $(shell pkg-config --cflags opencv4)
-LDFLAGS_CV = $(shell pkg-config --libs opencv4)
-LDFLAGS_DXL = -ldxl_x64_cpp -lpthread -lrt
+# =============================================================================
+#  PongBot - Makefile
+#    make            -> pongbot + herramientas (arm_test, joystick_test, hsv_tuner, calibración)
+#    make pongbot    -> solo el programa principal
+#    make legacy     -> versiones antiguas que ya funcionaron (plan B)
+#    make clean
+# =============================================================================
+CXX      = g++
+CXXFLAGS = -std=c++17 -O2 -Wall -Wextra -Iinclude $(shell pkg-config --cflags opencv4)
+LIBS_CV  = $(shell pkg-config --libs opencv4)
+LIBS_DXL = -L/usr/local/lib -ldxl_x64_cpp -lpthread -lrt
 
-BIN_DIR = bin
-SRC_DIR = src
-INC_DIR = include
+BIN = bin
+OBJ = build
 
-TARGETS_VISION = $(BIN_DIR)/CameraCalibration \
-                 $(BIN_DIR)/MonoCameraCalibration \
-                 $(BIN_DIR)/RedBallDetection \
-                 $(BIN_DIR)/RedBallTracking \
-                 $(BIN_DIR)/ChessboardOrientationTracking
+CORE_SRC = src/pongbot/config.cpp src/pongbot/arm.cpp src/pongbot/vision.cpp \
+           src/pongbot/joystick.cpp src/pongbot/controllers.cpp src/pongbot/sim.cpp \
+           src/pongbot/game_gui.cpp
+CORE_OBJ = $(patsubst src/pongbot/%.cpp,$(OBJ)/%.o,$(CORE_SRC))
+HEADERS  = $(wildcard include/pongbot/*.hpp)
 
-TARGETS_ROBOT = $(BIN_DIR)/interactive_test \
-                $(BIN_DIR)/main_robot_test \
-                $(BIN_DIR)/joystick_teleop
+TOOLS = $(BIN)/arm_test $(BIN)/joystick_test $(BIN)/hsv_tuner \
+        $(BIN)/CameraCalibration $(BIN)/MonoCameraCalibration
 
-TARGETS_GUI = $(BIN_DIR)/test_gui
+all: $(BIN)/pongbot $(TOOLS)
 
-TARGETS_SERVOING = $(BIN_DIR)/RobotServoing
+pongbot: $(BIN)/pongbot
+tools: $(TOOLS)
 
-all: $(TARGETS_VISION) $(TARGETS_ROBOT) $(TARGETS_GUI) $(TARGETS_SERVOING)
+$(OBJ)/%.o: src/pongbot/%.cpp $(HEADERS)
+	@mkdir -p $(OBJ)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-vision: $(TARGETS_VISION)
-robot: $(TARGETS_ROBOT)
-gui: $(TARGETS_GUI)
+$(BIN)/pongbot: src/pongbot/main.cpp $(CORE_OBJ) $(HEADERS)
+	@mkdir -p $(BIN)
+	$(CXX) $(CXXFLAGS) src/pongbot/main.cpp $(CORE_OBJ) -o $@ $(LIBS_CV) $(LIBS_DXL)
 
-# --- MODULO VISION (Bastien) ---
-$(BIN_DIR)/CameraCalibration: $(SRC_DIR)/CameraCalibration.cpp
-	@mkdir -p $(BIN_DIR)
-	$(CXX) $(CXXFLAGS) $< -o $@ $(LDFLAGS_CV)
+$(BIN)/arm_test: tools/arm_test.cpp $(OBJ)/arm.o $(OBJ)/config.o $(HEADERS)
+	@mkdir -p $(BIN)
+	$(CXX) $(CXXFLAGS) $< $(OBJ)/arm.o $(OBJ)/config.o -o $@ $(LIBS_CV) $(LIBS_DXL)
 
-$(BIN_DIR)/MonoCameraCalibration: $(SRC_DIR)/MonoCameraCalibration.cpp $(SRC_DIR)/ReadWriteFunctions.cpp $(INC_DIR)/ReadWriteFunctions.h
-	@mkdir -p $(BIN_DIR)
-	$(CXX) $(CXXFLAGS) $(SRC_DIR)/MonoCameraCalibration.cpp $(SRC_DIR)/ReadWriteFunctions.cpp -o $@ $(LDFLAGS_CV)
+$(BIN)/joystick_test: tools/joystick_test.cpp $(OBJ)/joystick.o $(OBJ)/config.o $(HEADERS)
+	@mkdir -p $(BIN)
+	$(CXX) $(CXXFLAGS) $< $(OBJ)/joystick.o $(OBJ)/config.o -o $@ $(LIBS_CV)
 
-$(BIN_DIR)/RedBallDetection: $(SRC_DIR)/RedBallDetection.cpp
-	@mkdir -p $(BIN_DIR)
-	$(CXX) $(CXXFLAGS) $< -o $@ $(LDFLAGS_CV)
+$(BIN)/hsv_tuner: tools/hsv_tuner.cpp
+	@mkdir -p $(BIN)
+	$(CXX) $(CXXFLAGS) $< -o $@ $(LIBS_CV)
 
-$(BIN_DIR)/RedBallTracking: $(SRC_DIR)/RedBallTracking.cpp
-	@mkdir -p $(BIN_DIR)
-	$(CXX) $(CXXFLAGS) $< -o $@ $(LDFLAGS_CV)
+$(BIN)/CameraCalibration: tools/CameraCalibration.cpp
+	@mkdir -p $(BIN)
+	$(CXX) $(CXXFLAGS) -w $< -o $@ $(LIBS_CV)
 
-$(BIN_DIR)/ChessboardOrientationTracking: $(SRC_DIR)/ChessboardOrientationTracking.cpp
-	@mkdir -p $(BIN_DIR)
-	$(CXX) $(CXXFLAGS) $< -o $@ $(LDFLAGS_CV)
+$(BIN)/MonoCameraCalibration: tools/MonoCameraCalibration.cpp tools/ReadWriteFunctions.cpp
+	@mkdir -p $(BIN)
+	$(CXX) $(CXXFLAGS) -w -Itools $^ -o $@ $(LIBS_CV)
 
-# --- MODULO ROBOT / CINEMATICA / JOYSTICK (Valeria) ---
-$(BIN_DIR)/interactive_test: $(SRC_DIR)/interactive_test.cpp $(INC_DIR)/pong_robot.hpp
-	@mkdir -p $(BIN_DIR)
-	$(CXX) $(CXXFLAGS) $< -o $@ $(LDFLAGS_DXL)
+# ---- Plan B: código antiguo tal cual estaba (ver legacy/README.md) ----
+LEG = legacy/pong_robot_valeria
+legacy: $(BIN)/legacy_autonomous $(BIN)/legacy_joystick_teleop $(BIN)/legacy_interactive_test
 
-$(BIN_DIR)/main_robot_test: $(SRC_DIR)/main_robot_test.cpp $(INC_DIR)/pong_robot.hpp
-	@mkdir -p $(BIN_DIR)
-	$(CXX) $(CXXFLAGS) $< -o $@ $(LDFLAGS_DXL)
+$(BIN)/legacy_autonomous: $(LEG)/RobotServoing_autonomous.cpp $(LEG)/pong_robot.hpp
+	@mkdir -p $(BIN)
+	$(CXX) $(CXXFLAGS) -w -I$(LEG) $< -o $@ $(LIBS_CV) $(LIBS_DXL)
 
-$(BIN_DIR)/joystick_teleop: $(SRC_DIR)/joystick_teleop.cpp $(INC_DIR)/pong_robot.hpp
-	@mkdir -p $(BIN_DIR)
-	$(CXX) $(CXXFLAGS) $< -o $@ $(LDFLAGS_DXL)
+$(BIN)/legacy_joystick_teleop: $(LEG)/joystick_teleop.cpp $(LEG)/pong_robot.hpp
+	@mkdir -p $(BIN)
+	$(CXX) $(CXXFLAGS) -w -I$(LEG) $< -o $@ $(LIBS_DXL)
 
-# --- MODULO GUI ARCADE (Fabio) ---
-$(BIN_DIR)/test_gui: $(SRC_DIR)/game_gui.cpp $(SRC_DIR)/test_gui.cpp $(INC_DIR)/game_gui.hpp $(INC_DIR)/score_manager.hpp
-	@mkdir -p $(BIN_DIR)
-	$(CXX) $(CXXFLAGS) $(SRC_DIR)/game_gui.cpp $(SRC_DIR)/test_gui.cpp -o $@ $(LDFLAGS_CV)
-
-# --- MODULO SERVOCONTROL INTEGRADO ---
-$(BIN_DIR)/RobotServoing: $(SRC_DIR)/RobotServoing.cpp $(SRC_DIR)/Kinematics.cpp $(SRC_DIR)/DynamixelHandler.cpp
-	@mkdir -p $(BIN_DIR)
-	$(CXX) $(CXXFLAGS) $(SRC_DIR)/RobotServoing.cpp $(SRC_DIR)/Kinematics.cpp $(SRC_DIR)/DynamixelHandler.cpp -o $@ $(LDFLAGS_DXL) $(LDFLAGS_CV)
+$(BIN)/legacy_interactive_test: $(LEG)/interactive_test.cpp $(LEG)/pong_robot.hpp
+	@mkdir -p $(BIN)
+	$(CXX) $(CXXFLAGS) -w -I$(LEG) $< -o $@ $(LIBS_DXL)
 
 clean:
-	rm -rf $(BIN_DIR)/* $(SRC_DIR)/*.o lib/*.o
-	@touch $(BIN_DIR)/.gitkeep lib/.gitkeep
+	rm -rf $(OBJ) $(BIN)/*
+	@touch $(BIN)/.gitkeep
+
+.PHONY: all pongbot tools legacy clean
+
+# ---- Autotest sin hardware ----
+$(BIN)/selftest: tests/selftest.cpp $(CORE_OBJ) $(HEADERS)
+	@mkdir -p $(BIN)
+	$(CXX) $(CXXFLAGS) -Ilegacy/pong_robot_valeria $< $(CORE_OBJ) -o $@ $(LIBS_CV) $(LIBS_DXL)
+
+test: $(BIN)/selftest
+	./$(BIN)/selftest
+
+.PHONY: test
