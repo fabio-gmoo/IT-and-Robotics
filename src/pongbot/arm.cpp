@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <iostream>
+#include <thread>
 
 #include "dynamixel_sdk/dynamixel_sdk.h"
 
@@ -53,12 +54,28 @@ DxlBus::~DxlBus() {
     }
 }
 
+// Comprueba el resultado. El bit 7 del byte de error (0x80, "hardware alert",
+// p.ej. sobrecarga) NO impide que la escritura se aplique: no lo contamos como fallo.
+bool DxlBus::check(int id, int comm, uint8_t err) {
+    if (comm != COMM_SUCCESS) {
+        last_error_ = "ID " + std::to_string(id) + ": " + packetHandler_->getTxRxResult(comm);
+        return false;
+    }
+    if (err & 0x7F) {
+        last_error_ = "ID " + std::to_string(id) + ": " + packetHandler_->getRxPacketError(err);
+        return false;
+    }
+    if (err & 0x80) last_error_ = "ID " + std::to_string(id) + ": hardware alert (sobrecarga/temperatura?)";
+    return true;
+}
+
 bool DxlBus::write1(int id, int addr, int value) {
     std::lock_guard<std::mutex> lock(mutex_);
     uint8_t err = 0;
     int res = packetHandler_->write1ByteTxRx(portHandler_, id, addr,
                                              static_cast<uint8_t>(value), &err);
-    return res == COMM_SUCCESS && err == 0;
+    if (write_gap_us > 0) std::this_thread::sleep_for(std::chrono::microseconds(write_gap_us));
+    return check(id, res, err);
 }
 
 bool DxlBus::write2(int id, int addr, int value) {
@@ -66,7 +83,8 @@ bool DxlBus::write2(int id, int addr, int value) {
     uint8_t err = 0;
     int res = packetHandler_->write2ByteTxRx(portHandler_, id, addr,
                                              static_cast<uint16_t>(value), &err);
-    return res == COMM_SUCCESS && err == 0;
+    if (write_gap_us > 0) std::this_thread::sleep_for(std::chrono::microseconds(write_gap_us));
+    return check(id, res, err);
 }
 
 bool DxlBus::read2(int id, int addr, int& value) {
@@ -103,13 +121,14 @@ bool PongArm::connect(std::string& error) {
     if (simulate_) return true;
     bus_ = DxlBus::open(cfg_.port, cfg_.baudrate, error);
     if (!bus_) return false;
+    bus_->write_gap_us = cfg_.write_gap_us;
 
     const int ids[4] = {cfg_.id_base, cfg_.id_shoulder, cfg_.id_elbow, cfg_.id_wrist};
     for (int id : ids) {
         if (!bus_->write1(id, ADDR_TORQUE_ENABLE, 1)) {
             error = "El motor ID " + std::to_string(id) + " del brazo " + cfg_.name +
-                    " no responde en " + cfg_.port +
-                    " (¿ID correcto? ¿alimentación? ¿mismo baudrate?)";
+                    " no responde en " + cfg_.port + " [" + bus_->lastError() +
+                    "] (¿ID correcto? ¿alimentación? ¿mismo baudrate?)";
             bus_.reset();
             return false;
         }
@@ -212,7 +231,9 @@ bool PongArm::moveToPlanar(double x, double y) { return send(x, y, true); }
 
 bool PongArm::writeRaw(int id, int ticks) {
     if (simulate_ || !bus_) return true;
-    return bus_->write2(id, ADDR_GOAL_POSITION, std::clamp(ticks, 0, 1023));
+    const bool ok = bus_->write2(id, ADDR_GOAL_POSITION, std::clamp(ticks, 0, 1023));
+    if (!ok) std::cerr << "[ARM " << cfg_.name << "] " << bus_->lastError() << "\n";
+    return ok;
 }
 
 void PongArm::update() {
@@ -287,8 +308,8 @@ bool PongArm::send(double x, double y, bool force) {
         ++send_errors_;
         last_ticks_ = {-1, -1, -1};  // reintenta la próxima vez
         if (std::chrono::duration_cast<std::chrono::seconds>(now - last_error_print_).count() >= 1) {
-            std::cerr << "[ARM " << cfg_.name << "] Error de comunicación con los motores ("
-                      << send_errors_ << " en total)\n";
+            std::cerr << "[ARM " << cfg_.name << "] Error de comunicación (" << send_errors_
+                      << " en total): " << bus_->lastError() << "\n";
             last_error_print_ = now;
         }
     }

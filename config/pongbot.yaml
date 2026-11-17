@@ -77,6 +77,7 @@ arms:
       smash_lateral_window: 4.0
       goal_u: 23.5
       min_send_ms: 8
+      write_gap_us: 1000          # pausa entre motores; si hay errores de comunicación subir a 3000
    -
       name: "B"
       enabled: 1
@@ -109,6 +110,7 @@ arms:
       smash_lateral_window: 4.0
       goal_u: 23.5
       min_send_ms: 8
+      write_gap_us: 1000          # pausa entre motores; si hay errores de comunicación subir a 3000
 
 # -----------------------------------------------------------------------------
 #  Joysticks (Arduino, 115200 baudios). Formatos de línea aceptados:

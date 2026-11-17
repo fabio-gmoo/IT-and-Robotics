@@ -39,6 +39,9 @@ public:
 
     bool write1(int id, int addr, int value);
     bool write2(int id, int addr, int value);
+    // Descripción del último fallo (para el log)
+    std::string lastError() const { return last_error_; }
+    int write_gap_us = 1000;  // pausa entre escrituras (el código viejo usaba 3000)
     bool read2(int id, int addr, int& value);
     const std::string& port() const { return port_; }
 
@@ -48,6 +51,8 @@ private:
     dynamixel::PortHandler* portHandler_ = nullptr;
     dynamixel::PacketHandler* packetHandler_ = nullptr;
     std::mutex mutex_;
+    std::string last_error_;
+    bool check(int id, int comm, uint8_t err);
     static std::map<std::string, std::weak_ptr<DxlBus>>& registry();
 };
 

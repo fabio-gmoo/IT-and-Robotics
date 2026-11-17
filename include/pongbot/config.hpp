@@ -71,6 +71,7 @@ struct ArmConfig {
 
     // --- Bus ---
     int min_send_ms = 8;                   // período mínimo entre escrituras
+    int write_gap_us = 1000;               // pausa entre motores (el viejo usaba 3000)
 };
 
 // ---------------------------------------------------------------------------

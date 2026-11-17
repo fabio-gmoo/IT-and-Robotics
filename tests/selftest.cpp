@@ -91,7 +91,7 @@ int main() {
         int compared = 0, mismatches = 0, reach_mismatch = 0;
         for (double x = -8; x <= 8; x += 0.25)
             for (double y = 8; y <= 17; y += 0.25) {
-                double r1, r2, r3, n1, n2, n3;
+                double r1 = 0, r2 = 0, r3 = 0, n1 = 0, n2 = 0, n3 = 0;
                 const bool okRef = ref.computeIK(x, y, 0.0, r1, r2, r3);
                 const bool okNew = arm.computeIK(x, y, 0.0, n1, n2, n3);
                 if (okRef != okNew) { ++reach_mismatch; continue; }
