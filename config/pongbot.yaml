@@ -63,6 +63,8 @@ arms:
       lateral_sign: 1             # target_x = ball_Y (lo que funcionó)
       lateral_center: 0.0
       lateral_limit: 7.0
+      lateral_min: -6.0           # izquierda: hay una pared (MEDIR con arm_test opción 2)
+      lateral_max: 7.0
       home_y: 13.5
       recoil_y: 11.5
       strike_y: 15.3
@@ -85,7 +87,7 @@ arms:
       port: "/dev/ttyUSB1"
       baudrate: 1000000
       ids: [ 1, 2, 3, 4 ]
-      shoulder_ticks: 341
+      shoulder_ticks: 231         # MEDIDO 17/11 (el B está montado distinto que el A)
       dir: [ 1, -1, -1 ]          # si algún motor gira al revés, cambiar su signo aquí
       offset: [ 0, 0, 0 ]
       tick_min: [ 0, 0, 0 ]
@@ -96,6 +98,8 @@ arms:
       lateral_sign: -1            # mirando al revés => ball_Y se invierte
       lateral_center: 0.0
       lateral_limit: 7.0
+      lateral_min: -6.0           # izquierda: hay una pared (MEDIR con arm_test opción 2)
+      lateral_max: 7.0
       home_y: 13.5
       recoil_y: 11.5
       strike_y: 15.3

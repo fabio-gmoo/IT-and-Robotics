@@ -49,6 +49,9 @@ struct ArmConfig {
     int lateral_sign = 1;
     double lateral_center = 0.0;           // Y de mesa frente a la base del robot
     double lateral_limit = 7.0;            // |target_x| máximo (cm)
+    // Límites asimétricos (p.ej. una pared a la izquierda). Por defecto ±lateral_limit.
+    double lateral_min = -7.0;             // x mínima (izquierda del robot)
+    double lateral_max = 7.0;              // x máxima (derecha del robot)
 
     // --- Posiciones en Y del robot (cm, hacia delante desde la base) ---
     double home_y = 13.5;                  // línea defensiva

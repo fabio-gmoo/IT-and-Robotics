@@ -111,7 +111,7 @@ int main() {
         PongArm arm(ac, true);
         bool homeOk = true, recoilOk = true;
         double minStrike = 1e9;
-        for (double x = -ac.lateral_limit; x <= ac.lateral_limit + 1e-9; x += 0.1) {
+        for (double x = ac.lateral_min; x <= ac.lateral_max + 1e-9; x += 0.1) {
             homeOk &= arm.reachable(x, ac.home_y);
             recoilOk &= arm.reachable(x, ac.recoil_y);
             minStrike = std::min(minStrike, arm.maxReachableY(x, ac.strike_y, ac.home_y));

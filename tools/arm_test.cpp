@@ -86,10 +86,14 @@ int main(int argc, char** argv) {
         } else if (op == "2") {
             std::cout << "La pala debería ir de IZQUIERDA a DERECHA vista DESDE el robot.\n"
                          "Si va al revés -> cambia dir[0] (base) o lateral_sign en el YAML.\n";
-            for (double x = -c.lateral_limit; x <= c.lateral_limit + 1e-6; x += 0.5) {
-                if (!arm.reachable(x, c.home_y)) std::cout << "  x=" << x << " fuera de alcance\n";
+            std::cout << "Fíjate en qué x toca la pared -> pon lateral_min (izq) / lateral_max (der)\n"
+                         "un poco más hacia dentro (p.ej. si toca en x=-6, lateral_min: -5.5).\n";
+            for (double x = c.lateral_min; x <= c.lateral_max + 1e-6; x += 0.5) {
+                std::cout << "  x=" << x << std::flush;
+                if (!arm.reachable(x, c.home_y)) std::cout << "  fuera de alcance";
                 else arm.moveToPlanar(x, c.home_y);
-                sleepMs(120);
+                std::cout << "\n";
+                sleepMs(250);
             }
             arm.goHome();
         } else if (op == "3") {

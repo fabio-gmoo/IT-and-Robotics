@@ -197,7 +197,7 @@ int PongArm::jointToTicks(int joint, double rad) const {
 // Órdenes
 // ---------------------------------------------------------------------------
 void PongArm::setLateralTarget(double x) {
-    target_x_ = std::clamp(x, -cfg_.lateral_limit, cfg_.lateral_limit);
+    target_x_ = std::clamp(x, cfg_.lateral_min, cfg_.lateral_max);
 }
 
 bool PongArm::triggerSmash() {

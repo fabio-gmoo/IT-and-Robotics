@@ -65,7 +65,7 @@ void JoystickController::handleKey(int key) {
 }
 
 void JoystickController::update(PongArm& arm, const TableVision& /*vision*/, double dt) {
-    const double limit = arm.config().lateral_limit;
+    const double xmin = arm.config().lateral_min, xmax = arm.config().lateral_max;
     bool smash_now = false;
 
     if (reader_) {
@@ -110,7 +110,7 @@ void JoystickController::update(PongArm& arm, const TableVision& /*vision*/, dou
     if (key_smash_) smash_now = true;
     key_smash_ = false;
 
-    x_ = std::clamp(x_, -limit, limit);
+    x_ = std::clamp(x_, xmin, xmax);
     arm.setLateralTarget(x_);
     if (smash_now) arm.triggerSmash();
 }

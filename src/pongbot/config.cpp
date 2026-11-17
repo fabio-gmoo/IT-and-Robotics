@@ -54,6 +54,10 @@ ArmConfig readArm(const cv::FileNode& n) {
     readOr(n, "lateral_sign", a.lateral_sign);
     readOr(n, "lateral_center", a.lateral_center);
     readOr(n, "lateral_limit", a.lateral_limit);
+    a.lateral_min = -a.lateral_limit;
+    a.lateral_max = a.lateral_limit;
+    readOr(n, "lateral_min", a.lateral_min);
+    readOr(n, "lateral_max", a.lateral_max);
     readOr(n, "home_y", a.home_y);
     readOr(n, "recoil_y", a.recoil_y);
     readOr(n, "strike_y", a.strike_y);
