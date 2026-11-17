@@ -118,9 +118,24 @@ public:
         for (int side : {1, -1}) {
             const double gu = side > 0 ? goal_u_pos : goal_u_neg;
             int& cnt = side > 0 ? cnt_pos_ : cnt_neg_;
-            // En la esquina (fuera del alcance de la pala) la bola se atasca: no es gol.
-            if (side * b.pos.x > gu && std::fabs(b.pos.y) <= max_abs_y) ++cnt;
-            else cnt = 0;
+            bool& entry_ok = side > 0 ? entry_ok_pos_ : entry_ok_neg_;
+            bool& decided = side > 0 ? decided_pos_ : decided_neg_;
+            const bool beyond = side * b.pos.x > gu;
+            if (!beyond) {
+                entry_ok = decided = false;
+                cnt = 0;
+                continue;
+            }
+            // Al CRUZAR la línea decidimos si es un gol de verdad:
+            //  - por el centro (|Y| <= max_abs_y): siempre;
+            //  - por la esquina: solo si la bola entra con velocidad (una bola
+            //    atascada que tiembla en la esquina no cuenta).
+            if (!decided) {
+                entry_ok = std::fabs(b.pos.y) <= max_abs_y ||
+                           (b.vel_valid && side * b.vel.x > ENTRY_SPEED);
+                decided = true;
+            }
+            if (entry_ok) ++cnt;
             if (cnt >= frames_needed) {
                 cnt_pos_ = cnt_neg_ = 0;
                 locked_ = true;
@@ -129,10 +144,17 @@ public:
         }
         return 0;
     }
-    void reset() { cnt_pos_ = cnt_neg_ = 0; locked_ = false; }
+    void reset() {
+        cnt_pos_ = cnt_neg_ = 0;
+        entry_ok_pos_ = entry_ok_neg_ = decided_pos_ = decided_neg_ = false;
+        locked_ = false;
+    }
 
 private:
+    static constexpr double ENTRY_SPEED = 8.0;  // cm/s
     int cnt_pos_ = 0, cnt_neg_ = 0;
+    bool entry_ok_pos_ = false, entry_ok_neg_ = false;
+    bool decided_pos_ = false, decided_neg_ = false;
     bool locked_ = false;
     double last_seen_ = 0.0;
 };
