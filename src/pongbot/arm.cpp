@@ -224,10 +224,14 @@ void PongArm::setArmed(bool armed) {
 void PongArm::goHome() {
     smash_ = SmashState::IDLE;
     target_x_ = 0.0;
+    cmd_x_ = 0.0;
     send(0.0, cfg_.home_y, true);
 }
 
-bool PongArm::moveToPlanar(double x, double y) { return send(x, y, true); }
+bool PongArm::moveToPlanar(double x, double y) {
+    cmd_x_ = target_x_ = x;
+    return send(x, y, true);
+}
 
 bool PongArm::writeRaw(int id, int ticks) {
     if (simulate_ || !bus_) return true;
@@ -240,7 +244,19 @@ void PongArm::update() {
     const auto now = clock_();
     const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(now - smash_t0_).count();
 
-    double x = armed_ ? target_x_ : 0.0;
+    // Movimiento lateral con velocidad máxima: evita saltos bruscos que hacen
+    // que los XL-320 tiren de golpe mucha corriente y pierdan paquetes.
+    const double goal_x = armed_ ? target_x_ : 0.0;
+    const double dt = has_update_ ? std::chrono::duration<double>(now - last_update_).count() : 0.0;
+    last_update_ = now;
+    has_update_ = true;
+    if (cfg_.max_lateral_speed > 0.0 && dt > 0.0) {
+        const double step = cfg_.max_lateral_speed * std::min(dt, 0.1);
+        cmd_x_ += std::clamp(goal_x - cmd_x_, -step, step);
+    } else {
+        cmd_x_ = goal_x;
+    }
+    double x = cmd_x_;
     double y = cfg_.home_y;
 
     switch (smash_) {

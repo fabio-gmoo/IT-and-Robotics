@@ -124,6 +124,9 @@ private:
     bool armed_ = true;
 
     double target_x_ = 0.0;
+    double cmd_x_ = 0.0;                 // x lateral comandada (con límite de velocidad)
+    Clock::time_point last_update_;
+    bool has_update_ = false;
     double cur_x_ = 0.0, cur_y_ = 0.0;
     double smash_x_ = 0.0, smash_strike_y_ = 0.0;
     SmashState smash_ = SmashState::IDLE;

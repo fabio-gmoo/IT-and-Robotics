@@ -74,6 +74,7 @@ struct ArmConfig {
 
     // --- Bus ---
     int min_send_ms = 8;                   // período mínimo entre escrituras
+    double max_lateral_speed = 60.0;       // cm/s: limita saltos bruscos (0 = sin límite)
     int write_gap_us = 1000;               // pausa entre motores (el viejo usaba 3000)
 };
 
