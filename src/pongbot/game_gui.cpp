@@ -3,6 +3,28 @@
 #include <cmath>
 #include <cstdio>
 
+namespace {
+// Las fuentes Hershey de OpenCV no tienen acentos: "Cámara" saldría "C??mara".
+std::string toAscii(const std::string& in) {
+    static const std::pair<const char*, const char*> map[] = {
+        {"á", "a"}, {"é", "e"}, {"í", "i"}, {"ó", "o"}, {"ú", "u"}, {"ñ", "n"}, {"ü", "u"},
+        {"Á", "A"}, {"É", "E"}, {"Í", "I"}, {"Ó", "O"}, {"Ú", "U"}, {"Ñ", "N"},
+        {"¿", ""}, {"¡", ""}, {"·", "-"}, {"°", " deg"}};
+    std::string s = in;
+    for (const auto& [from, to] : map) {
+        size_t pos = 0;
+        const std::string f(from);
+        while ((pos = s.find(f, pos)) != std::string::npos) { s.replace(pos, f.size(), to); pos += std::string(to).size(); }
+    }
+    std::string out;
+    for (unsigned char c : s) out += (c < 128) ? static_cast<char>(c) : '?';
+    return out;
+}
+std::string ellipsize(const std::string& s, size_t max) {
+    return s.size() <= max ? s : s.substr(0, max - 3) + "...";
+}
+}  // namespace
+
 GameGui::GameGui(int width, int height)
     : windowWidth(width), windowHeight(height),
       colorBackground(20, 20, 25),
@@ -13,10 +35,11 @@ GameGui::GameGui(int width, int height)
 
 void GameGui::drawRetroText(cv::Mat& canvas, const std::string& text, cv::Point origin,
                             double fontScale, cv::Scalar color, int thickness) {
+    const std::string t = toAscii(text);
     // Sombra negra desplazada para contraste arcade
-    cv::putText(canvas, text, origin + cv::Point(2, 2),
+    cv::putText(canvas, t, origin + cv::Point(2, 2),
                 cv::FONT_HERSHEY_DUPLEX, fontScale, cv::Scalar(0, 0, 0), thickness + 1, cv::LINE_AA);
-    cv::putText(canvas, text, origin,
+    cv::putText(canvas, t, origin,
                 cv::FONT_HERSHEY_DUPLEX, fontScale, color, thickness, cv::LINE_AA);
 }
 
@@ -28,17 +51,20 @@ void GameGui::drawSystemCheckScreen(cv::Mat& canvas, const HardwareStatus& statu
         drawRetroText(canvas, "MODO SIMULACION (sin hardware)", cv::Point(290, 100), 0.6, cv::Scalar(0, 200, 255), 1);
     cv::line(canvas, cv::Point(60, 115), cv::Point(900, 115), cv::Scalar(80, 80, 90), 2);
 
-    int y = 160;
+    // Columnas: nombre | dispositivo | estado
+    int y = 165;
     for (const auto& d : status.devices) {
-        drawRetroText(canvas, d.name, cv::Point(70, y), 0.62, colorText, 1);
-        drawRetroText(canvas, "[" + d.device + "]", cv::Point(330, y), 0.55, cv::Scalar(150, 150, 150), 1);
-        drawRetroText(canvas, d.ok ? "OK" : "NO", cv::Point(600, y), 0.7, d.ok ? colorOk : colorError, 2);
-        if (!d.detail.empty()) {
-            std::string detail = d.detail.size() > 70 ? d.detail.substr(0, 67) + "..." : d.detail;
-            cv::putText(canvas, detail, cv::Point(90, y + 20), cv::FONT_HERSHEY_SIMPLEX, 0.42,
-                        cv::Scalar(140, 140, 140), 1, cv::LINE_AA);
-        }
-        y += 48;
+        drawRetroText(canvas, d.name, cv::Point(80, y), 0.65, colorText, 1);
+        drawRetroText(canvas, ellipsize(d.device, 30), cv::Point(300, y), 0.55, cv::Scalar(160, 160, 160), 1);
+        // Etiqueta de estado en un recuadro a la derecha
+        const cv::Scalar c = d.ok ? colorOk : colorError;
+        cv::rectangle(canvas, cv::Rect(760, y - 24, 120, 32), d.ok ? cv::Scalar(30, 60, 35) : cv::Scalar(30, 30, 70), -1);
+        cv::rectangle(canvas, cv::Rect(760, y - 24, 120, 32), c, 1);
+        drawRetroText(canvas, d.ok ? "OK" : "NO", cv::Point(d.ok ? 802 : 800, y), 0.7, c, 2);
+        if (!d.ok && !d.detail.empty())
+            cv::putText(canvas, toAscii(ellipsize(d.detail, 80)), cv::Point(100, y + 20), cv::FONT_HERSHEY_SIMPLEX,
+                        0.42, cv::Scalar(150, 150, 150), 1, cv::LINE_AA);
+        y += 50;
         if (y > 420) break;
     }
 

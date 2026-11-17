@@ -13,6 +13,8 @@
 //    3. JOYSTICK vs IA          4. JOYSTICK vs JOYSTICK      5. IA vs IA
 //  P1 = primer brazo del YAML (A), P2 = segundo brazo (B).
 // =============================================================================
+#include <climits>
+#include <cstdlib>
 #include <unistd.h>
 
 #include <chrono>
@@ -74,6 +76,25 @@ bool parseArgs(int argc, char** argv, Options& o) {
     }
     if (o.mode < 0 || o.mode > 5) { usage(); return false; }
     return true;
+}
+
+// "/dev/serial/by-id/usb-FTDI_..._FT4TFLHO-if00-port0" -> "ttyUSB1 - FT4TFLHO"
+std::string shortDevice(const std::string& path) {
+    const std::string byid = "/dev/serial/by-id/";
+    if (path.rfind(byid, 0) != 0) return path;
+    std::string name = path.substr(byid.size());
+    for (const char* suf : {"-if00-port0", "-if00"}) {
+        const size_t p = name.rfind(suf);
+        if (p != std::string::npos && p + std::strlen(suf) == name.size()) name.erase(p);
+    }
+    const size_t us = name.rfind('_');
+    std::string serial = us == std::string::npos ? name : name.substr(us + 1);
+    if (serial.size() > 10) serial = "..." + serial.substr(serial.size() - 6);
+    char real[PATH_MAX];
+    std::string tty = realpath(path.c_str(), real) ? std::string(real) : "";
+    const size_t sl = tty.rfind('/');
+    if (sl != std::string::npos) tty = tty.substr(sl + 1);
+    return (tty.empty() ? "desconectado" : tty) + " - " + serial;
 }
 
 double secondsSince(Clock::time_point t0) {
@@ -161,10 +182,11 @@ int main(int argc, char** argv) {
                 std::string info;
                 camera.start(cfg.camera, info);
                 std::cout << "[CAMERA] " << info << "\n";
-                hw.devices.push_back({"Camara", "index " + std::to_string(cfg.camera.index),
+                hw.devices.push_back({"Camara", "video " + std::to_string(camera.running()
+                                                                              ? camera.openedIndex() : cfg.camera.index),
                                       camera.running(), info});
             } else {
-                hw.devices.push_back({"Camara", "index " + std::to_string(camera.openedIndex()), true, ""});
+                hw.devices.push_back({"Camara", "video " + std::to_string(camera.openedIndex()), true, ""});
             }
             hw.cameraOk = camera.running();
         }
@@ -183,15 +205,15 @@ int main(int argc, char** argv) {
             }
             any_arm |= ok;
             hw.devices.push_back({"Brazo " + a->config().name,
-                                  a->isSimulated() ? "simulado" : a->config().port, ok, e});
+                                  a->isSimulated() ? "simulado" : shortDevice(a->config().port), ok, e});
         }
         hw.dynamixelOk = any_arm;
         // Joysticks (solo comprobamos que el dispositivo existe)
         for (size_t i = 0; i < cfg.joysticks.size(); ++i) {
             const auto& j = cfg.joysticks[i];
             const bool ok = access(j.device.c_str(), R_OK | W_OK) == 0;
-            hw.devices.push_back({"Joystick P" + std::to_string(i + 1), j.device + " ch" +
-                                  std::to_string(j.channel), ok, ok ? "" : "sin acceso -> teclado"});
+            hw.devices.push_back({"Joystick P" + std::to_string(i + 1), shortDevice(j.device) + " - stick " +
+                                  std::to_string(j.channel + 1), ok, ok ? "" : "sin acceso -> se usa el teclado"});
             hw.joystickOk |= ok;
         }
     };
