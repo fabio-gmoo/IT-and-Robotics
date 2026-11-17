@@ -91,8 +91,9 @@ void JoystickController::update(PongArm& arm, const TableVision& /*vision*/, dou
             const bool button = stride == 3 && v.size() >= ix + 3 && v[ix + 2] == 0;
             // Misma zona muerta y escala que joystick_teleop.cpp
             double vx = 0.0;
-            if (raw_x > cfg_.deadzone_high) vx = (raw_x - cfg_.deadzone_high) / 450.0;
-            else if (raw_x < cfg_.deadzone_low) vx = (raw_x - cfg_.deadzone_low) / 450.0;
+            const double fs = cfg_.full_scale > 0 ? cfg_.full_scale : 450.0;
+            if (raw_x > cfg_.deadzone_high) vx = (raw_x - cfg_.deadzone_high) / fs;
+            else if (raw_x < cfg_.deadzone_low) vx = (raw_x - cfg_.deadzone_low) / fs;
             vx = std::clamp(vx, -1.0, 1.0);
             if (cfg_.invert_x) vx = -vx;
             x_ += vx * cfg_.max_speed * dt;

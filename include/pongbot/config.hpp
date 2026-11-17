@@ -89,6 +89,7 @@ struct JoystickConfig {
     int deadzone_high = 570;
     int smash_threshold = 800;  // eje Y por encima => smash (0 = solo botón)
     bool invert_x = false;
+    int full_scale = 450;       // recorrido desde la zona muerta hasta el tope (5 V: 450, 3.3 V: ~290)
     double max_speed = 30.0;    // cm/s con el stick a fondo
 };
 

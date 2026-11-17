@@ -133,15 +133,18 @@ joysticks:
       center: 512
       deadzone_low: 450
       deadzone_high: 570
+      full_scale: 450
       smash_threshold: 800
       invert_x: 0
       max_speed: 30.0
    -
       device: "/dev/ttyACM0"        # 17/11: los 2 joysticks en el mismo Arduino (arduino_joystick_dual)
       channel: 1
-      center: 512
-      deadzone_low: 450
-      deadzone_high: 570
-      smash_threshold: 800
+      # 17/11: este joystick está alimentado a 3.3 V -> centro ~337, máximo ~675
+      center: 337
+      deadzone_low: 300
+      deadzone_high: 375
+      full_scale: 290
+      smash_threshold: 0          # a 3.3 V el eje no llega a 800: smash solo con el botón
       invert_x: 0
       max_speed: 30.0
