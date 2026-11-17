@@ -11,12 +11,52 @@ y joysticks Arduino. **Un solo programa** (`bin/pongbot`) con menú arcade y 5 m
 | 4 | JOYSTICK vs JOYSTICK | joystick | joystick |
 | 5 | IA vs IA | IA | IA |
 
+## Estado (17/11/2026) — probado en la mesa ✅
+
+| Modo | Estado |
+|---|---|
+| 1. IA (brazo A y brazo B) | ✅ |
+| 2. Joystick | ✅ |
+| 3. Joystick vs IA | ✅ |
+| 4. Joystick vs Joystick | ✅ (2 joysticks en un Arduino) |
+| 5. IA vs IA | ✅ |
+
+**Valores medidos en la mesa** (ya están en `config/pongbot.yaml`):
+
+| | Brazo A | Brazo B |
+|---|---|---|
+| U2D2 (`/dev/serial/by-id/...`) | `FT4TFLHO` | `FT9MIQP7` |
+| Hombro fijo (`shoulder_ticks`) | 341 | 231 |
+| Límite izquierdo (`lateral_min`, pared) | -6.0 | -5.8 |
+| `lateral_center` | 0.0 | -0.3 |
+| Bola tocando la pala (`paddle_u`) | 30.8 | 29.9 |
+| Disparo del smash (`smash_trigger_u`) | 29.8 | 28.9 |
+
+Smash: retroceso a y=10.5 → golpe hasta y=16.5 (se reduce solo donde no alcanza), 90/150 ms,
+anticipación 0.12 s. Paredes laterales en Y=±10.8. Velocidad lateral máx. 60 cm/s.
+
+**Joysticks:** los dos en el mismo Arduino Uno (`arduino/arduino_joystick_dual`):
+J1 → A0, A1, D2 (5 V) · J2 → A2, A3, D3 (alimentado a **3.3 V**: centro 337, smash con Y > 560 o botón).
+Subir el sketch:
+```bash
+arduino-cli compile --fqbn arduino:avr:uno arduino/arduino_joystick_dual
+arduino-cli upload -p /dev/ttyACM0 --fqbn arduino:avr:uno arduino/arduino_joystick_dual
+```
+
+**Limitaciones conocidas**
+- Las esquinas de la mesa (|Y| > ~8.5) quedan fuera del alcance de la pala sin chocar con la pared.
+  Solución física: pala más ancha o cuñas en las esquinas.
+- La muñeca (ID 4) a veces no responde (`There is no status packet!`), sobre todo en movimientos
+  rápidos hacia la izquierda. El código reenvía la posición; revisar cables/conectores.
+- Si cambia la luz hay que recalibrar el color: `./bin/hsv_tuner -c 2` → `s` → commit de
+  `data/color_params_data.xml`.
+
 ---
 
 ## 1. Compilar
 
 ```bash
-git fetch && git checkout integration/final && git pull
+git pull   # rama main (o integration/final antes de fusionar el PR)
 make            # pongbot + herramientas
 make test       # autotest sin hardware (debe terminar en "TODO OK")
 ```
