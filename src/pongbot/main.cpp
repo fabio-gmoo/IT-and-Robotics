@@ -135,7 +135,9 @@ public:
                            (b.vel_valid && side * b.vel.x > ENTRY_SPEED);
                 decided = true;
             }
-            if (entry_ok) ++cnt;
+            // Bien detrás de la línea (más allá de donde se atasca) => gol siempre.
+            const bool deep = side * b.pos.x > gu + DEEP_MARGIN;
+            if (entry_ok || deep) ++cnt;
             if (cnt >= frames_needed) {
                 cnt_pos_ = cnt_neg_ = 0;
                 locked_ = true;
@@ -152,6 +154,7 @@ public:
 
 private:
     static constexpr double ENTRY_SPEED = 8.0;  // cm/s
+    static constexpr double DEEP_MARGIN = 2.0;  // cm detrás de goal_u
     int cnt_pos_ = 0, cnt_neg_ = 0;
     bool entry_ok_pos_ = false, entry_ok_neg_ = false;
     bool decided_pos_ = false, decided_neg_ = false;

@@ -68,7 +68,7 @@ void SimTable::step(double dt, const std::vector<const PongArm*>& arms) {
             }
         } else {
             // Sin brazo en ese extremo: hay una pared (modos de 1 brazo)
-            const double wall = cfg_.table_half_length - 4.0;
+            const double wall = 31.0;  // pared virtual del lado sin brazo (modos de 1 brazo)
             if (u > wall && side * vel_.x > 0) {
                 pos_.x = static_cast<float>(side * (2 * wall - u));
                 vel_.x = -vel_.x;

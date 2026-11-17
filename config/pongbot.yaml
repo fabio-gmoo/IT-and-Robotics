@@ -28,7 +28,7 @@ vision:
    # Centros de los ArUco (cm): TL, TR, BL, BR tal como se ven en la imagen
    markers: [ -20.4, 8.15,  20.4, 8.15,  -20.4, -8.15,  20.4, -8.15 ]
    table_half_width: 10.8       # MEDIDO 17/11: Y del centro de la bola tocando la pared lateral
-   table_half_length: 35.0      # solo dibujo / simulación (pala a 32.5 cm del centro)
+   table_half_length: 40.0      # solo dibujo (la bola puede llegar a X~±40 detrás de los robots)
    velocity_alpha: 0.5          # suavizado de velocidad (1 = sin suavizar)
    lost_timeout_s: 0.3
    predict: 1                   # IA: ir al punto de intercepción (0 = seguir Y)
