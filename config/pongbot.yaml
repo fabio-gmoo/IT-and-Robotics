@@ -63,7 +63,7 @@ arms:
       lateral_sign: 1             # target_x = ball_Y (lo que funcionó)
       lateral_center: 0.0
       lateral_limit: 7.0
-      lateral_min: -6.0           # izquierda: hay una pared (MEDIR con arm_test opción 2)
+      lateral_min: -6.0           # probado 17/11: sin choque
       lateral_max: 7.0
       home_y: 13.5
       recoil_y: 11.5
@@ -96,9 +96,9 @@ arms:
       gamma: 0.0
       side: -1                    # el brazo B está en el extremo -X (enfrente)
       lateral_sign: -1            # mirando al revés => ball_Y se invierte
-      lateral_center: 0.0
+      lateral_center: -0.3        # MEDIDO 17/11: Y de la bola delante del centro de la pala
       lateral_limit: 7.0
-      lateral_min: -6.0           # izquierda: hay una pared (MEDIR con arm_test opción 2)
+      lateral_min: -4.3           # MEDIDO 17/11: choca con la pared en x < -4.5
       lateral_max: 7.0
       home_y: 13.5
       recoil_y: 11.5
@@ -107,14 +107,14 @@ arms:
       strike_ms: 120
       return_ms: 80
       cooldown_ms: 250
-      paddle_u: 30.8              # igual que A (verificar con el brazo B)
+      paddle_u: 29.9              # MEDIDO 17/11: bola tocando la pala del B en X = -29.9
       smash_trigger_u: 27.0
       smash_min_speed: 4.5
       smash_lead_s: 0.15
       smash_lateral_window: 4.0
       goal_u: 34.5                # pala a 32.5 cm + radio de la bola
       min_send_ms: 8
-      write_gap_us: 1000          # pausa entre motores; si hay errores de comunicación subir a 3000
+      write_gap_us: 3000          # la muñeca (ID 4) del B perdía paquetes con 1000
 
 # -----------------------------------------------------------------------------
 #  Joysticks (Arduino, 115200 baudios). Formatos de línea aceptados:
