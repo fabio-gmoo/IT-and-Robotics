@@ -30,7 +30,7 @@ bool CameraThread::start(const CameraConfig& cfg, std::string& info) {
         }
     }
     if (opened_index_ < 0) {
-        info = "No se pudo abrir ninguna cámara (índices 0-4).";
+        info = "No camera could be opened (indices 0-4).";
         return false;
     }
     cap_.set(cv::CAP_PROP_FRAME_WIDTH, cfg.width);
@@ -38,10 +38,10 @@ bool CameraThread::start(const CameraConfig& cfg, std::string& info) {
     cap_.set(cv::CAP_PROP_FPS, cfg.fps);
     cap_.set(cv::CAP_PROP_BUFFERSIZE, 1);  // menos latencia si el driver lo permite
 
-    info = "Cámara abierta en el índice " + std::to_string(opened_index_);
+    info = "Camera opened at index " + std::to_string(opened_index_);
     if (opened_index_ != cfg.index)
-        info += " (OJO: en config pone " + std::to_string(cfg.index) +
-                "; si es la webcam del portátil cambia camera.index)";
+        info += " (WARNING: config says " + std::to_string(cfg.index) +
+                ": if this is the laptop webcam, change camera.index)";
     running_ = true;
     thread_ = std::thread(&CameraThread::loop, this);
     return true;

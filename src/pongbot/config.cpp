@@ -150,6 +150,7 @@ bool loadConfig(const std::string& path, Config& cfg, std::string& error) {
         readOr(game, "points_to_win", cfg.game.points_to_win);
         readBool(game, "auto_goals", cfg.game.auto_goals);
         readOr(game, "goal_frames", cfg.game.goal_frames);
+        readOr(game, "goal_max_abs_y", cfg.game.goal_max_abs_y);
         readOr(game, "rearm_center_u", cfg.game.rearm_center_u);
         readStr(game, "scores_file", cfg.game.scores_file);
     }

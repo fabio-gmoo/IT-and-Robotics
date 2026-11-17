@@ -42,11 +42,11 @@ using namespace pongbot;
 namespace {
 
 const std::vector<std::string> MODE_NAMES = {
-    "IA (1 brazo)",
-    "JOYSTICK (1 brazo)",
-    "JOYSTICK vs IA",
+    "AI (1 arm)",
+    "JOYSTICK (1 arm)",
+    "JOYSTICK vs AI",
     "JOYSTICK vs JOYSTICK",
-    "IA vs IA",
+    "AI vs AI",
 };
 enum Mode { MODE_AI = 1, MODE_JOY = 2, MODE_JOY_VS_AI = 3, MODE_JOY_VS_JOY = 4, MODE_AI_VS_AI = 5 };
 
@@ -94,7 +94,7 @@ std::string shortDevice(const std::string& path) {
     std::string tty = realpath(path.c_str(), real) ? std::string(real) : "";
     const size_t sl = tty.rfind('/');
     if (sl != std::string::npos) tty = tty.substr(sl + 1);
-    return (tty.empty() ? "desconectado" : tty) + " - " + serial;
+    return (tty.empty() ? "disconnected" : tty) + " - " + serial;
 }
 
 double secondsSince(Clock::time_point t0) {
@@ -106,7 +106,7 @@ class GoalDetector {
 public:
     // Devuelve el lado (+1/-1) donde entró el gol, o 0.
     int update(const BallState& b, double goal_u_pos, double goal_u_neg,
-               int frames_needed, double rearm_u, double t) {
+               int frames_needed, double rearm_u, double max_abs_y, double t) {
         if (b.valid) last_seen_ = t;
         if (locked_) {
             const bool back_in_center = b.valid && std::fabs(b.pos.x) < rearm_u;
@@ -118,7 +118,8 @@ public:
         for (int side : {1, -1}) {
             const double gu = side > 0 ? goal_u_pos : goal_u_neg;
             int& cnt = side > 0 ? cnt_pos_ : cnt_neg_;
-            if (side * b.pos.x > gu) ++cnt;
+            // En la esquina (fuera del alcance de la pala) la bola se atasca: no es gol.
+            if (side * b.pos.x > gu && std::fabs(b.pos.y) <= max_abs_y) ++cnt;
             else cnt = 0;
             if (cnt >= frames_needed) {
                 cnt_pos_ = cnt_neg_ = 0;
@@ -175,18 +176,18 @@ int main(int argc, char** argv) {
         hw = HardwareStatus{};
         // Cámara
         if (opt.sim) {
-            hw.devices.push_back({"Camara", "simulada", true, ""});
+            hw.devices.push_back({"Camera", "simulated", true, ""});
             hw.cameraOk = true;
         } else {
             if (!camera.running()) {
                 std::string info;
                 camera.start(cfg.camera, info);
                 std::cout << "[CAMERA] " << info << "\n";
-                hw.devices.push_back({"Camara", "video " + std::to_string(camera.running()
+                hw.devices.push_back({"Camera", "video " + std::to_string(camera.running()
                                                                               ? camera.openedIndex() : cfg.camera.index),
                                       camera.running(), info});
             } else {
-                hw.devices.push_back({"Camara", "video " + std::to_string(camera.openedIndex()), true, ""});
+                hw.devices.push_back({"Camera", "video " + std::to_string(camera.openedIndex()), true, ""});
             }
             hw.cameraOk = camera.running();
         }
@@ -204,8 +205,8 @@ int main(int argc, char** argv) {
                 std::cerr << "[ARM " << a->config().name << "] " << e << "\n";
             }
             any_arm |= ok;
-            hw.devices.push_back({"Brazo " + a->config().name,
-                                  a->isSimulated() ? "simulado" : shortDevice(a->config().port), ok, e});
+            hw.devices.push_back({"Arm " + a->config().name,
+                                  a->isSimulated() ? "simulated" : shortDevice(a->config().port), ok, e});
         }
         hw.dynamixelOk = any_arm;
         // Joysticks (solo comprobamos que el dispositivo existe)
@@ -213,7 +214,7 @@ int main(int argc, char** argv) {
             const auto& j = cfg.joysticks[i];
             const bool ok = access(j.device.c_str(), R_OK | W_OK) == 0;
             hw.devices.push_back({"Joystick P" + std::to_string(i + 1), shortDevice(j.device) + " - stick " +
-                                  std::to_string(j.channel + 1), ok, ok ? "" : "sin acceso -> se usa el teclado"});
+                                  std::to_string(j.channel + 1), ok, ok ? "" : "not accessible -> keyboard fallback"});
             hw.joystickOk |= ok;
         }
     };
@@ -258,14 +259,14 @@ int main(int argc, char** argv) {
         p2 = Player{};
         const bool twoArms = mode >= MODE_JOY_VS_AI;
         PongArm* single = opt.single_arm.empty() ? armA : findArm(opt.single_arm);
-        if (!single) { menuMessage = "No hay brazo " + opt.single_arm + " en el YAML"; return false; }
-        if (twoArms && !armB) { menuMessage = "Este modo necesita 2 brazos habilitados en el YAML"; return false; }
+        if (!single) { menuMessage = "No arm named " + opt.single_arm + " in the YAML"; return false; }
+        if (twoArms && !armB) { menuMessage = "This mode needs 2 arms enabled in the YAML"; return false; }
         if (!twoArms && !(single->isConnected() || single->isSimulated())) {
-            menuMessage = "Brazo " + single->config().name + " no conectado (pulsa R)"; return false;
+            menuMessage = "Arm " + single->config().name + " not connected (press R)"; return false;
         }
         if (twoArms && (!(armA->isConnected() || armA->isSimulated()) ||
                         !(armB->isConnected() || armB->isSimulated()))) {
-            menuMessage = "Algun brazo no esta conectado (pulsa R en el menu)"; return false;
+            menuMessage = "An arm is not connected (press R in the menu)"; return false;
         }
 
         const JoystickConfig j1 = cfg.joysticks.size() > 0 ? cfg.joysticks[0] : JoystickConfig{};
@@ -285,25 +286,25 @@ int main(int argc, char** argv) {
 
         switch (mode) {
             case MODE_AI:
-                p1 = {single, mk(true, j1, k1), "IA " + single->config().name};
+                p1 = {single, mk(true, j1, k1), "AI " + single->config().name};
                 break;
             case MODE_JOY:
                 p1 = {single, mk(false, j1, k1), "P1"};
                 break;
             case MODE_JOY_VS_AI:
                 p1 = {armA, mk(false, j1, k1), "P1"};
-                p2 = {armB, mk(true, j2, k2), "IA"};
+                p2 = {armB, mk(true, j2, k2), "AI"};
                 break;
             case MODE_JOY_VS_JOY:
                 p1 = {armA, mk(false, j1, k1), "P1"};
                 p2 = {armB, mk(false, j2, k2), "P2"};
                 break;
             case MODE_AI_VS_AI:
-                p1 = {armA, mk(true, j1, k1), "IA A"};
-                p2 = {armB, mk(true, j2, k2), "IA B"};
+                p1 = {armA, mk(true, j1, k1), "AI A"};
+                p2 = {armB, mk(true, j2, k2), "AI B"};
                 break;
         }
-        if (!p2.arm) p2.name = "PARED";
+        if (!p2.arm) p2.name = "WALL";
         if (p1.arm) p1.arm->setArmed(true);
         if (p2.arm) p2.arm->setArmed(true);
         scoreP1 = scoreP2 = 0;
@@ -359,7 +360,7 @@ int main(int argc, char** argv) {
                     else gneg = a->config().goal_u;
                 }
                 const int side = goals.update(vision.ball(), gpos, gneg, cfg.game.goal_frames,
-                                              cfg.game.rearm_center_u, t);
+                                              cfg.game.rearm_center_u, cfg.game.goal_max_abs_y, t);
                 if (side != 0) {
                     // Gol en el lado de P1 => punto para P2, y viceversa
                     const int p1side = p1.arm ? p1.arm->config().side : 1;
@@ -400,11 +401,11 @@ int main(int argc, char** argv) {
                     cv::resize(debugFrame, small, cv::Size(), s, s);
                     small.copyTo(canvas(cv::Rect(camArea.x, camArea.y, small.cols, small.rows)));
                 } else {
-                    gui.drawRetroText(canvas, opt.sim ? "[SIMULACION]" : "[Camara sin imagen]",
+                    gui.drawRetroText(canvas, opt.sim ? "[SIMULATION]" : "[No camera image]",
                                       cv::Point(200, 290), 0.7, cv::Scalar(120, 120, 120), 1);
                 }
                 if (!opt.sim && !vision.homographyReady())
-                    gui.drawRetroText(canvas, "Mostrar los 4 ArUco a la camara", cv::Point(20, 110),
+                    gui.drawRetroText(canvas, "Show the 4 ArUco markers to the camera", cv::Point(20, 110),
                                       0.7, cv::Scalar(0, 200, 255), 2);
                 // Derecha: vista cenital + estado de cada brazo
                 PlanView pv;
@@ -432,9 +433,9 @@ int main(int argc, char** argv) {
                 for (Player* p : {&p1, &p2}) {
                     if (!p->arm) continue;
                     char buf[160];
-                    std::snprintf(buf, sizeof(buf), "%s [%s] brazo %s %s", p->name.c_str(),
+                    std::snprintf(buf, sizeof(buf), "%s [%s] arm %s %s", p->name.c_str(),
                                   p->ctrl ? p->ctrl->label().c_str() : "-", p->arm->config().name.c_str(),
-                                  p->arm->armed() ? "ARMADO" : "DESARMADO");
+                                  p->arm->armed() ? "ARMED" : "DISARMED");
                     cv::putText(canvas, buf, cv::Point(612, y), cv::FONT_HERSHEY_SIMPLEX, 0.45,
                                 cv::Scalar(230, 230, 230), 1, cv::LINE_AA);
                     std::snprintf(buf, sizeof(buf), "  x=%.1f y=%.1f %s err=%d", p->arm->currentX(),
@@ -447,11 +448,11 @@ int main(int argc, char** argv) {
                                     cv::FONT_HERSHEY_SIMPLEX, 0.42, cv::Scalar(180, 180, 220), 1, cv::LINE_AA);
                     y += 64;
                 }
-                cv::putText(canvas, "Teclado: P1 A/D + W smash   P2 J/L + I smash", cv::Point(612, 495),
+                cv::putText(canvas, "Keyboard: P1 A/D + W smash   P2 J/L + I smash", cv::Point(612, 495),
                             cv::FONT_HERSHEY_SIMPLEX, 0.4, cv::Scalar(160, 160, 160), 1, cv::LINE_AA);
                 gui.drawMatchHud(canvas, scoreP1, scoreP2, static_cast<int>(secondsSince(matchStart)),
                                  MODE_NAMES[selectedMode - 1] + (opt.sim ? "  (SIM)" : "") +
-                                     (opt.no_motors ? "  (SIN MOTORES)" : ""),
+                                     (opt.no_motors ? "  (NO MOTORS)" : ""),
                                  p1.name, p2.name);
             } else if (state == GuiState::GAME_OVER) {
                 gui.drawGameOverScreen(canvas, winner, scoreP1, scoreP2);

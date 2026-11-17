@@ -23,7 +23,7 @@ std::shared_ptr<SerialLineReader> SerialLineReader::open(const std::string& devi
     // Misma configuración que joystick_teleop.cpp (raw, 8N1, 115200, no bloqueante)
     int fd = ::open(device.c_str(), O_RDWR | O_NOCTTY | O_NONBLOCK);
     if (fd < 0) {
-        error = "No se pudo abrir " + device + " (¿Arduino conectado? ¿permisos dialout?)";
+        error = "Cannot open " + device + " (Arduino plugged in? 'dialout' permissions?)";
         return nullptr;
     }
     termios options{};

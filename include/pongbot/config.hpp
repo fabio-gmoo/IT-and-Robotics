@@ -122,7 +122,8 @@ struct VisionConfig {
 struct GameConfig {
     int points_to_win = 5;
     bool auto_goals = true;
-    int goal_frames = 3;              // frames seguidos detrás de la línea
+    int goal_frames = 5;              // frames seguidos detrás de la línea
+    double goal_max_abs_y = 9.0;      // bola en la esquina (|Y| mayor) => no es gol
     double rearm_center_u = 10.0;     // la bola debe volver a |X| < esto
     std::string scores_file = "data/scores.csv";
 };

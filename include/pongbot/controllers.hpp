@@ -22,7 +22,7 @@ public:
     // dt en segundos desde la última llamada
     virtual void update(PongArm& arm, const TableVision& vision, double dt) = 0;
     virtual void handleKey(int /*key*/) {}
-    virtual std::string label() const = 0;   // "IA", "JOY", "TECLADO"
+    virtual std::string label() const = 0;   // "AI", "JOY", "KEYBOARD"
     virtual std::string status() const { return ""; }
 };
 
@@ -30,7 +30,7 @@ class AIController : public Controller {
 public:
     explicit AIController(bool predict) : predict_(predict) {}
     void update(PongArm& arm, const TableVision& vision, double dt) override;
-    std::string label() const override { return "IA"; }
+    std::string label() const override { return "AI"; }
     std::string status() const override { return status_; }
 
 private:
@@ -51,7 +51,7 @@ public:
     JoystickController(const JoystickConfig& cfg, KeyBinding keys);
     void update(PongArm& arm, const TableVision& vision, double dt) override;
     void handleKey(int key) override;
-    std::string label() const override { return reader_ ? "JOY" : "TECLADO"; }
+    std::string label() const override { return reader_ ? "JOY" : "KEYBOARD"; }
     std::string status() const override { return status_; }
     bool hasJoystick() const { return reader_ != nullptr; }
     const std::string& openError() const { return open_error_; }

@@ -35,12 +35,11 @@ std::shared_ptr<DxlBus> DxlBus::open(const std::string& port, int baudrate,
     bus->portHandler_ = dynamixel::PortHandler::getPortHandler(port.c_str());
     bus->packetHandler_ = dynamixel::PacketHandler::getPacketHandler(PROTOCOL_VERSION);
     if (!bus->portHandler_->openPort()) {
-        error = "No se pudo abrir " + port +
-                " (¿conectado? ¿usuario en el grupo dialout? ¿USB pasado a la VM?)";
+        error = "Cannot open " + port + " (plugged in? user in 'dialout' group? USB passed to the VM?)";
         return nullptr;
     }
     if (!bus->portHandler_->setBaudRate(baudrate)) {
-        error = "No se pudo fijar el baudrate " + std::to_string(baudrate) + " en " + port;
+        error = "Cannot set baudrate " + std::to_string(baudrate) + " on " + port;
         return nullptr;
     }
     reg[port] = bus;
@@ -126,9 +125,8 @@ bool PongArm::connect(std::string& error) {
     const int ids[4] = {cfg_.id_base, cfg_.id_shoulder, cfg_.id_elbow, cfg_.id_wrist};
     for (int id : ids) {
         if (!bus_->write1(id, ADDR_TORQUE_ENABLE, 1)) {
-            error = "El motor ID " + std::to_string(id) + " del brazo " + cfg_.name +
-                    " no responde en " + cfg_.port + " [" + bus_->lastError() +
-                    "] (¿ID correcto? ¿alimentación? ¿mismo baudrate?)";
+            error = "Motor ID " + std::to_string(id) + " of arm " + cfg_.name +
+                    " not responding [" + bus_->lastError() + "] (right ID? power? baudrate?)";
             bus_.reset();
             return false;
         }

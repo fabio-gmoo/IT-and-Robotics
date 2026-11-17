@@ -48,14 +48,14 @@ void GameGui::drawSystemCheckScreen(cv::Mat& canvas, const HardwareStatus& statu
 
     drawRetroText(canvas, "PONGBOT SYSTEM HARDWARE CHECK", cv::Point(140, 70), 1.0, colorAccent, 2);
     if (simulated)
-        drawRetroText(canvas, "MODO SIMULACION (sin hardware)", cv::Point(290, 100), 0.6, cv::Scalar(0, 200, 255), 1);
+        drawRetroText(canvas, "SIMULATION MODE (no hardware)", cv::Point(300, 100), 0.6, cv::Scalar(0, 200, 255), 1);
     cv::line(canvas, cv::Point(60, 115), cv::Point(900, 115), cv::Scalar(80, 80, 90), 2);
 
     // Columnas: nombre | dispositivo | estado
     int y = 165;
     for (const auto& d : status.devices) {
         drawRetroText(canvas, d.name, cv::Point(80, y), 0.65, colorText, 1);
-        drawRetroText(canvas, ellipsize(d.device, 30), cv::Point(300, y), 0.55, cv::Scalar(160, 160, 160), 1);
+        drawRetroText(canvas, ellipsize(d.device, 40), cv::Point(300, y), 0.55, cv::Scalar(160, 160, 160), 1);
         // Etiqueta de estado en un recuadro a la derecha
         const cv::Scalar c = d.ok ? colorOk : colorError;
         cv::rectangle(canvas, cv::Rect(760, y - 24, 120, 32), d.ok ? cv::Scalar(30, 60, 35) : cv::Scalar(30, 30, 70), -1);
@@ -146,7 +146,7 @@ void GameGui::drawMatchHud(cv::Mat& canvas, int scoreP1, int scoreP2,
 
     cv::rectangle(canvas, cv::Rect(0, windowHeight - 26, windowWidth, 26), cv::Scalar(25, 25, 30), -1);
     cv::putText(canvas,
-                "[SPACE] Gol P1  [B] Gol P2  [X] Armar/Desarmar  [H] Home  [C] Recalibrar ArUco  [M] Menu  [ESC] Salir",
+                "[SPACE] Goal P1  [B] Goal P2  [X] Arm/Disarm  [H] Home  [C] Recalibrate ArUco  [V] Mask  [M] Menu  [ESC] Quit",
                 cv::Point(12, windowHeight - 8), cv::FONT_HERSHEY_SIMPLEX, 0.45, cv::Scalar(200, 200, 200), 1,
                 cv::LINE_AA);
 }

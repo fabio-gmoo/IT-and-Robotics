@@ -36,7 +36,8 @@ vision:
 game:
    points_to_win: 5
    auto_goals: 1                # goles automáticos por visión
-   goal_frames: 3               # frames seguidos detrás de la línea de gol
+   goal_frames: 5               # frames seguidos detrás de la línea de gol
+   goal_max_abs_y: 9.0          # 17/11: bola atascada en la esquina (|Y| > 9) no cuenta como gol
    rearm_center_u: 15.0         # tras un gol, la bola debe volver a |X| < esto
    scores_file: "data/scores.csv"
 

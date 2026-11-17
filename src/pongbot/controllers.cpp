@@ -13,7 +13,7 @@ void AIController::update(PongArm& arm, const TableVision& vision, double /*dt*/
     const ArmConfig& c = arm.config();
     const BallState& b = vision.ball();
     if (!b.valid) {
-        status_ = "sin bola";
+        status_ = "no ball";
         return;  // mantiene la última posición
     }
 
@@ -29,7 +29,13 @@ void AIController::update(PongArm& arm, const TableVision& vision, double /*dt*/
     arm.setLateralTarget(c.lateral_sign * (tableY - c.lateral_center));
 
     // 2) Smash
-    const bool lateral_ok = std::fabs(b.pos.y - arm.paddleTableY()) <= c.smash_lateral_window;
+    // ¿La bola está fuera del alcance lateral (esquina)? Entonces el brazo se
+    // queda en su tope y sigue golpeando para sacarla de ahí.
+    const double wanted_x = c.lateral_sign * (b.pos.y - c.lateral_center);
+    const bool beyond_reach = wanted_x < c.lateral_min - 0.3 || wanted_x > c.lateral_max + 0.3;
+    const bool corner = beyond_reach && u >= c.smash_trigger_u - 2.0;
+    if (corner) arm.setLateralTarget(wanted_x);  // se satura en lateral_min / lateral_max
+    const bool lateral_ok = corner || std::fabs(b.pos.y - arm.paddleTableY()) <= c.smash_lateral_window;
     bool fire = false;
     if (lateral_ok && u < c.goal_u) {
         if (vu > c.smash_min_speed) {
@@ -42,7 +48,8 @@ void AIController::update(PongArm& arm, const TableVision& vision, double /*dt*/
             // Bola casi parada delante de la pala: empujarla, pero como mucho
             // 2 veces seguidas si no se ha movido (bola atascada / fuera de alcance).
             if (cv::norm(b.pos - still_pos_) > 1.5f) still_smashes_ = 0;
-            if (still_smashes_ < 2 && arm.smashState() == PongArm::SmashState::IDLE) {
+            // En la esquina no hay límite: seguir empujando hasta que salga.
+            if ((corner || still_smashes_ < 2) && arm.smashState() == PongArm::SmashState::IDLE) {
                 fire = true;
                 ++still_smashes_;
                 still_pos_ = b.pos;
@@ -52,8 +59,11 @@ void AIController::update(PongArm& arm, const TableVision& vision, double /*dt*/
     if (std::fabs(vu) >= 2.0) still_smashes_ = 0;
     if (fire) arm.triggerSmash();
 
+    if (corner && fire == false && arm.smashState() == PongArm::SmashState::IDLE && u <= c.goal_u)
+        fire = arm.triggerSmash();  // bola atascada en la esquina: insistir
     char buf[96];
-    std::snprintf(buf, sizeof(buf), "u=%.1f vu=%.0f%s", u, vu, predicted ? " pred" : "");
+    std::snprintf(buf, sizeof(buf), "u=%.1f vu=%.0f%s%s", u, vu, predicted ? " pred" : "",
+                  corner ? " CORNER" : "");
     status_ = buf;
 }
 
@@ -107,10 +117,10 @@ void JoystickController::update(PongArm& arm, const TableVision& /*vision*/, dou
             std::snprintf(buf, sizeof(buf), "raw=(%d,%d)%s", raw_x, raw_y, button ? " BTN" : "");
             status_ = buf;
         } else {
-            status_ = "esperando datos del Arduino";
+            status_ = "waiting for Arduino data";
         }
     } else {
-        status_ = "teclado";
+        status_ = "keyboard";
     }
 
     // Teclado (siempre activo; útil si el Arduino falla)
