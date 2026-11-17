@@ -76,6 +76,7 @@ int main(int argc, char** argv) {
                   << " [6] Ángulos articulares en grados (base, codo, muñeca)\n"
                   << " [7] Ticks crudos a un motor (ID, ticks)\n"
                   << " [8] Alcance máximo de Y para cada x (tabla)\n"
+                  << " [9] Ajustar HOMBRO fijo (altura / eje Z del plano)\n"
                   << " [q] Salir\nOpción: ";
         std::string op;
         if (!(std::cin >> op) || op == "q" || op == "Q") break;
@@ -133,6 +134,29 @@ int main(int argc, char** argv) {
             std::cout << "ID y ticks (2 números, p.ej. 1 512): ";
             if (!readNums(id, t)) continue;
             std::cout << (arm.writeRaw(id, t) ? "  OK\n" : "  FALLO (ver mensaje de error)\n");
+        } else if (op == "9") {
+            int t = c.shoulder_ticks;
+            std::cout << "Ajuste del hombro (ID " << c.id_shoulder << "). Actual: " << t << " ticks\n"
+                      << "  +  / -    -> mover 5 ticks       ++ / --  -> mover 20 ticks\n"
+                      << "  número    -> ir a ese valor      ok       -> terminar\n"
+                      << "Objetivo: que la pala quede HORIZONTAL (paralela a la mesa), igual que el brazo A.\n";
+            arm.writeRaw(c.id_shoulder, t);
+            std::string in;
+            while (std::cout << "  hombro=" << t << " > " && std::cin >> in && in != "ok") {
+                if (in == "+") t += 5;
+                else if (in == "-") t -= 5;
+                else if (in == "++") t += 20;
+                else if (in == "--") t -= 20;
+                else {
+                    try { t = std::stoi(in); } catch (...) { std::cout << "  ?\n"; continue; }
+                }
+                t = std::max(0, std::min(1023, t));
+                arm.writeRaw(c.id_shoulder, t);
+            }
+            arm.setShoulderTicks(t);
+            arm.goHome();
+            std::cout << "\n>>> Pon en config/pongbot.yaml, brazo " << c.name << ":   shoulder_ticks: " << t
+                      << "\n    (vuelve a probar [1] home y [2] barrido con este valor)\n";
         } else if (op == "8") {
             for (double x = 0; x <= 8.0 + 1e-6; x += 1.0)
                 std::cout << "  x=±" << x << "  y_max=" << arm.maxReachableY(x, 20.0, 0.0)

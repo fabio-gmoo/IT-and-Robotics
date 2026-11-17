@@ -94,6 +94,8 @@ public:
     // ---- Acceso directo (herramientas de calibración) ----
     bool moveToPlanar(double x, double y);  // como el moveToPlanar original
     bool writeRaw(int id, int ticks);
+    // Cambia el hombro fijo en caliente (calibración con arm_test)
+    void setShoulderTicks(int ticks) { cfg_.shoulder_ticks = ticks; }
 
     // ---- Estado (GUI / simulación) ----
     double currentX() const { return cur_x_; }
