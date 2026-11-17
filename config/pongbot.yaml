@@ -111,7 +111,10 @@ arms:
       min_send_ms: 8
 
 # -----------------------------------------------------------------------------
-#  Joysticks (Arduino, 115200 baudios, línea "x,y" o "x1,y1,x2,y2")
+#  Joysticks (Arduino, 115200 baudios). Formatos de línea aceptados:
+#    "x,y,btn"  (sketch de Valeria: arduino/arduino_joystick, botón en pin 2)
+#    "x,y"  /  "x1,y1,x2,y2"  /  "x1,y1,b1,x2,y2,b2"
+#  Smash = botón pulsado  O  eje Y > smash_threshold (0 = desactivar el eje).
 #  El primero es P1, el segundo P2. Un solo Arduino con 2 sticks:
 #  mismo device y channel 0 / 1.  device "none" = solo teclado.
 # -----------------------------------------------------------------------------

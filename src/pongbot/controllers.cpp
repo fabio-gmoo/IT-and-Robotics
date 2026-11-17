@@ -71,10 +71,16 @@ void JoystickController::update(PongArm& arm, const TableVision& /*vision*/, dou
     if (reader_) {
         reader_->poll();
         const auto& v = reader_->values();
-        const size_t ix = static_cast<size_t>(2 * cfg_.channel);
+        // Formatos aceptados por línea:
+        //   "x,y" / "x1,y1,x2,y2"            -> 2 valores por stick (sin botón)
+        //   "x,y,btn" / "x1,y1,b1,x2,y2,b2"  -> 3 valores por stick (sketch de Valeria)
+        const size_t stride = (v.size() % 3 == 0) ? 3 : 2;
+        const size_t ix = stride * static_cast<size_t>(cfg_.channel);
         if (v.size() >= ix + 2) {
             const int raw_x = v[ix];
             const int raw_y = v[ix + 1];
+            // Botón con INPUT_PULLUP: 0 = pulsado
+            const bool button = stride == 3 && v.size() >= ix + 3 && v[ix + 2] == 0;
             // Misma zona muerta y escala que joystick_teleop.cpp
             double vx = 0.0;
             if (raw_x > cfg_.deadzone_high) vx = (raw_x - cfg_.deadzone_high) / 450.0;
@@ -84,12 +90,12 @@ void JoystickController::update(PongArm& arm, const TableVision& /*vision*/, dou
             x_ += vx * cfg_.max_speed * dt;
 
             // Smash por flanco: empujar hacia delante y soltar para repetir
-            const bool pushed = raw_y > cfg_.smash_threshold;
+            const bool pushed = (cfg_.smash_threshold > 0 && raw_y > cfg_.smash_threshold) || button;
             if (pushed && !smash_latch_) smash_now = true;
             smash_latch_ = pushed;
 
             char buf[64];
-            std::snprintf(buf, sizeof(buf), "raw=(%d,%d)", raw_x, raw_y);
+            std::snprintf(buf, sizeof(buf), "raw=(%d,%d)%s", raw_x, raw_y, button ? " BTN" : "");
             status_ = buf;
         } else {
             status_ = "esperando datos del Arduino";

@@ -49,6 +49,7 @@ Las partidas se guardan en `data/scores.csv`.
 | `./bin/joystick_test` | Ver los valores crudos que manda cada Arduino. |
 | `./bin/hsv_tuner -c 2` | Ajustar el color de la bola; `S` guarda en `data/color_params_data.xml`. |
 | `./bin/MonoCameraCalibration`, `./bin/CameraCalibration` | Calibración intrínseca de la cámara. |
+| `arduino/arduino_joystick/` | Sketch del joystick (x,y,botón). |
 | `make legacy` | Plan B: los programas antiguos que ya funcionaron (ver `legacy/README.md`). |
 
 ## 4. Configuración: `config/pongbot.yaml`
@@ -73,7 +74,7 @@ El robot recibe `target_x = lateral_sign * (ball_Y - lateral_center)` y se mueve
 - [ ] ¿Cuántos U2D2? Si los dos brazos van en el **mismo** U2D2, poner el mismo `port` y los IDs
       del brazo B distintos (p. ej. `[5,6,7,8]`). Si van en **dos** U2D2: `ttyUSB0` y `ttyUSB1`.
 - [ ] Joysticks: uno o dos Arduinos → `joysticks[].device` / `channel`.
-- [ ] `./bin/joystick_test` → centro ~512, adelante > 800.
+- [ ] `./bin/joystick_test` → 3 números `x,y,btn`: centro ~512, el 3º pasa a 0 al pulsar el botón.
 
 **2. Brazo A** (el que ya funcionaba): `./bin/arm_test --arm A`
 - [ ] `1` home: pala paralela, en la línea de defensa.
@@ -128,7 +129,7 @@ include/pongbot/, src/pongbot/
   main.cpp    bucle principal: percepción -> control -> brazos -> goles -> dibujo
 tools/      arm_test, joystick_test, hsv_tuner, calibración de cámara
 tests/      selftest (make test)
-arduino/    sketch de referencia del joystick
+arduino/    sketch del joystick (Valeria)
 legacy/     código antiguo (plan B)
 ```
 

@@ -74,7 +74,7 @@ struct ArmConfig {
 };
 
 // ---------------------------------------------------------------------------
-// Joystick por Arduino (línea serie "x,y\n" o "x1,y1,x2,y2\n" a 115200)
+// Joystick por Arduino (línea serie "x,y,btn\n", "x,y\n", ... a 115200)
 // ---------------------------------------------------------------------------
 struct JoystickConfig {
     std::string device = "/dev/ttyACM0";
@@ -82,7 +82,7 @@ struct JoystickConfig {
     int center = 512;
     int deadzone_low = 450;
     int deadzone_high = 570;
-    int smash_threshold = 800;  // eje Y por encima => smash
+    int smash_threshold = 800;  // eje Y por encima => smash (0 = solo botón)
     bool invert_x = false;
     double max_speed = 30.0;    // cm/s con el stick a fondo
 };

@@ -1,6 +1,7 @@
 // =============================================================================
 //  Joystick Arduino por puerto serie (no bloqueante).
-//  Formato de línea aceptado (115200 baudios):  "x,y\n"  o  "x1,y1,x2,y2\n"
+//  Formato de línea (115200 baudios): "x,y,btn\n" (sketch actual), "x,y\n",
+//  "x1,y1,x2,y2\n" o "x1,y1,b1,x2,y2,b2\n"
 //  Varios jugadores pueden compartir el mismo Arduino (channel 0 / 1).
 // =============================================================================
 #ifndef PONGBOT_JOYSTICK_HPP
