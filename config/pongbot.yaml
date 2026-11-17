@@ -28,7 +28,7 @@ vision:
    # Centros de los ArUco (cm): TL, TR, BL, BR tal como se ven en la imagen
    markers: [ -20.4, 8.15,  20.4, 8.15,  -20.4, -8.15,  20.4, -8.15 ]
    table_half_width: 8.15       # paredes laterales (para predecir rebotes)
-   table_half_length: 24.0      # solo dibujo / simulación
+   table_half_length: 35.0      # solo dibujo / simulación (pala a 32.5 cm del centro)
    velocity_alpha: 0.5          # suavizado de velocidad (1 = sin suavizar)
    lost_timeout_s: 0.3
    predict: 1                   # IA: ir al punto de intercepción (0 = seguir Y)
@@ -37,7 +37,7 @@ game:
    points_to_win: 5
    auto_goals: 1                # goles automáticos por visión
    goal_frames: 3               # frames seguidos detrás de la línea de gol
-   rearm_center_u: 10.0         # tras un gol, la bola debe volver a |X| < esto
+   rearm_center_u: 15.0         # tras un gol, la bola debe volver a |X| < esto
    scores_file: "data/scores.csv"
 
 # -----------------------------------------------------------------------------
@@ -70,12 +70,12 @@ arms:
       strike_ms: 120
       return_ms: 80
       cooldown_ms: 250
-      paddle_u: 21.0              # MEDIR: X de mesa donde está la pala en home
-      smash_trigger_u: 20.0       # antes: ball_X >= 20.0
+      paddle_u: 30.8              # MEDIDO 17/11: X de la bola tocando la pala en home
+      smash_trigger_u: 27.0       # ~4 cm antes de la pala (ajustar: tarde -> bajar, pronto -> subir)
       smash_min_speed: 4.5        # antes: velocity_x > 0.15 cm/frame (= 4.5 cm/s)
-      smash_lead_s: 0.12
+      smash_lead_s: 0.15
       smash_lateral_window: 4.0
-      goal_u: 23.5
+      goal_u: 34.5                # pala a 32.5 cm + radio de la bola
       min_send_ms: 8
       write_gap_us: 1000          # pausa entre motores; si hay errores de comunicación subir a 3000
    -
@@ -103,12 +103,12 @@ arms:
       strike_ms: 120
       return_ms: 80
       cooldown_ms: 250
-      paddle_u: 21.0
-      smash_trigger_u: 20.0
+      paddle_u: 30.8              # igual que A (verificar con el brazo B)
+      smash_trigger_u: 27.0
       smash_min_speed: 4.5
-      smash_lead_s: 0.12
+      smash_lead_s: 0.15
       smash_lateral_window: 4.0
-      goal_u: 23.5
+      goal_u: 34.5                # pala a 32.5 cm + radio de la bola
       min_send_ms: 8
       write_gap_us: 1000          # pausa entre motores; si hay errores de comunicación subir a 3000
 
