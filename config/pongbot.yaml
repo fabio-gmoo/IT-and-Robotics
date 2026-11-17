@@ -49,7 +49,8 @@ arms:
    -
       name: "A"
       enabled: 1
-      port: "/dev/ttyUSB1"          # 17/11: los nombres USB se intercambian al reconectar (mejor usar /dev/serial/by-id/...)
+      # U2D2 del brazo A (nombre fijo; antes ttyUSB0/1 se intercambiaban al reconectar)
+      port: "/dev/serial/by-id/usb-FTDI_USB__-__Serial_Converter_FT4TFLHO-if00-port0"
       baudrate: 1000000
       ids: [ 1, 2, 3, 4 ]
       shoulder_ticks: 341
@@ -85,7 +86,7 @@ arms:
       name: "B"
       enabled: 1
       # Si el brazo B está en el MISMO U2D2 que A: port "/dev/ttyUSB0" e ids distintos (p.ej. 5-8)
-      port: "/dev/ttyUSB0"
+      port: "/dev/serial/by-id/usb-FTDI_USB__-__Serial_Converter_FT9MIQP7-if00-port0"   # U2D2 del brazo B
       baudrate: 1000000
       ids: [ 1, 2, 3, 4 ]
       shoulder_ticks: 231         # MEDIDO 17/11 (el B está montado distinto que el A)
@@ -128,7 +129,7 @@ arms:
 # -----------------------------------------------------------------------------
 joysticks:
    -
-      device: "/dev/ttyACM0"
+      device: "/dev/serial/by-id/usb-Arduino__www.arduino.cc__0043_5573232363035181B160-if00"
       channel: 0
       center: 512
       deadzone_low: 450
@@ -139,7 +140,7 @@ joysticks:
       invert_y: 0
       max_speed: 30.0
    -
-      device: "/dev/ttyACM0"        # 17/11: los 2 joysticks en el mismo Arduino (arduino_joystick_dual)
+      device: "/dev/serial/by-id/usb-Arduino__www.arduino.cc__0043_5573232363035181B160-if00"        # 17/11: los 2 joysticks en el mismo Arduino (arduino_joystick_dual)
       channel: 1
       # 17/11: este joystick está alimentado a 3.3 V -> centro ~337, máximo ~675
       center: 337
