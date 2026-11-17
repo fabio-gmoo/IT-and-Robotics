@@ -86,7 +86,7 @@ void JoystickController::update(PongArm& arm, const TableVision& /*vision*/, dou
         const size_t ix = stride * static_cast<size_t>(cfg_.channel);
         if (v.size() >= ix + 2) {
             const int raw_x = v[ix];
-            const int raw_y = v[ix + 1];
+            const int raw_y = cfg_.invert_y ? 2 * cfg_.center - v[ix + 1] : v[ix + 1];
             // Botón con INPUT_PULLUP: 0 = pulsado
             const bool button = stride == 3 && v.size() >= ix + 3 && v[ix + 2] == 0;
             // Misma zona muerta y escala que joystick_teleop.cpp

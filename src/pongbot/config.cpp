@@ -88,6 +88,7 @@ JoystickConfig readJoystick(const cv::FileNode& n) {
     readOr(n, "deadzone_high", j.deadzone_high);
     readOr(n, "smash_threshold", j.smash_threshold);
     readBool(n, "invert_x", j.invert_x);
+    readBool(n, "invert_y", j.invert_y);
     readOr(n, "full_scale", j.full_scale);
     readOr(n, "max_speed", j.max_speed);
     return j;

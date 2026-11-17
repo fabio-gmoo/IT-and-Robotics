@@ -136,6 +136,7 @@ joysticks:
       full_scale: 450
       smash_threshold: 800
       invert_x: 0
+      invert_y: 0
       max_speed: 30.0
    -
       device: "/dev/ttyACM0"        # 17/11: los 2 joysticks en el mismo Arduino (arduino_joystick_dual)
@@ -145,6 +146,7 @@ joysticks:
       deadzone_low: 300
       deadzone_high: 375
       full_scale: 290
-      smash_threshold: 0          # a 3.3 V el eje no llega a 800: smash solo con el botón
+      smash_threshold: 560        # a 3.3 V el eje llega a ~675 (no a 1023)
       invert_x: 0
+      invert_y: 0                 # poner 1 si el smash sale al tirar hacia ATRÁS
       max_speed: 30.0
