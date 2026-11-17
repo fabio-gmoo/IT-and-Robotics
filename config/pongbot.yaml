@@ -49,7 +49,7 @@ arms:
    -
       name: "A"
       enabled: 1
-      port: "/dev/ttyUSB0"
+      port: "/dev/ttyUSB1"          # 17/11: los nombres USB se intercambian al reconectar (mejor usar /dev/serial/by-id/...)
       baudrate: 1000000
       ids: [ 1, 2, 3, 4 ]
       shoulder_ticks: 341
@@ -84,7 +84,7 @@ arms:
       name: "B"
       enabled: 1
       # Si el brazo B está en el MISMO U2D2 que A: port "/dev/ttyUSB0" e ids distintos (p.ej. 5-8)
-      port: "/dev/ttyUSB1"
+      port: "/dev/ttyUSB0"
       baudrate: 1000000
       ids: [ 1, 2, 3, 4 ]
       shoulder_ticks: 231         # MEDIDO 17/11 (el B está montado distinto que el A)
