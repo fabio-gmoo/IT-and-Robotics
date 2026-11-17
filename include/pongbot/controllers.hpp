@@ -36,6 +36,9 @@ public:
 private:
     bool predict_;
     std::string status_;
+    // Para no golpear sin parar una bola atascada (p.ej. en una esquina):
+    int still_smashes_ = 0;
+    cv::Point2f still_pos_;
 };
 
 struct KeyBinding {

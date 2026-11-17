@@ -39,9 +39,17 @@ void AIController::update(PongArm& arm, const TableVision& vision, double /*dt*/
             fire = (u >= c.smash_trigger_u) || (time_to_trigger <= c.smash_lead_s);
         } else if (std::fabs(vu) < 2.0 && u >= c.smash_trigger_u - 0.5 &&
                    u <= c.paddle_u + 0.5) {
-            fire = true;  // bola casi parada delante de la pala: empujarla
+            // Bola casi parada delante de la pala: empujarla, pero como mucho
+            // 2 veces seguidas si no se ha movido (bola atascada / fuera de alcance).
+            if (cv::norm(b.pos - still_pos_) > 1.5f) still_smashes_ = 0;
+            if (still_smashes_ < 2 && arm.smashState() == PongArm::SmashState::IDLE) {
+                fire = true;
+                ++still_smashes_;
+                still_pos_ = b.pos;
+            }
         }
     }
+    if (std::fabs(vu) >= 2.0) still_smashes_ = 0;
     if (fire) arm.triggerSmash();
 
     char buf[96];
