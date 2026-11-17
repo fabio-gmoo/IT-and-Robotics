@@ -132,8 +132,11 @@ int main() {
         vis.injectBall(true, {2.f, 2.f}, 0.2);
         double y, t;
         const bool ok = vis.predictIntercept(+1, 21.0, y, t);
-        // sin paredes: y = 2 + 19 = 21 -> con paredes en ±8.15 => 2*8.15 - 21 = -4.7
-        CHECK(ok && std::fabs(y - (-4.7)) < 0.05, "y predicha = " + std::to_string(y) + " (esperado -4.7)");
+        // sin paredes: y = 2 + 19 = 21 -> rebote en la pared W => 2W - 21
+        const double W = cfg.vision.table_half_width;
+        const double expected = (21.0 > W) ? 2 * W - 21.0 : 21.0;
+        CHECK(ok && std::fabs(y - expected) < 0.05,
+              "y predicha = " + std::to_string(y) + " (esperado " + std::to_string(expected) + ")");
         CHECK(!vis.predictIntercept(-1, 21.0, y, t), "no predice para el brazo del que se aleja");
     }
 
