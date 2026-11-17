@@ -75,7 +75,7 @@ arms:
       paddle_u: 30.8              # MEDIDO 17/11: X de la bola tocando la pala en home
       smash_trigger_u: 27.0       # ~4 cm antes de la pala (ajustar: tarde -> bajar, pronto -> subir)
       smash_min_speed: 4.5        # antes: velocity_x > 0.15 cm/frame (= 4.5 cm/s)
-      smash_lead_s: 0.22          # el golpe tarda más -> dispararlo antes
+      smash_lead_s: 0.17          # 17/11: 0.22 golpeaba un poco pronto (pronto -> bajar, tarde -> subir)
       smash_lateral_window: 4.0
       goal_u: 34.5                # pala a 32.5 cm + radio de la bola
       min_send_ms: 8
@@ -111,7 +111,7 @@ arms:
       paddle_u: 29.9              # MEDIDO 17/11: bola tocando la pala del B en X = -29.9
       smash_trigger_u: 27.0
       smash_min_speed: 4.5
-      smash_lead_s: 0.22          # el golpe tarda más -> dispararlo antes
+      smash_lead_s: 0.17          # 17/11: 0.22 golpeaba un poco pronto (pronto -> bajar, tarde -> subir)
       smash_lateral_window: 4.0
       goal_u: 34.5                # pala a 32.5 cm + radio de la bola
       min_send_ms: 8
