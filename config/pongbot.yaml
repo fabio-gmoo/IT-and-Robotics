@@ -100,7 +100,7 @@ arms:
       lateral_sign: -1            # mirando al revés => ball_Y se invierte
       lateral_center: -0.3        # MEDIDO 17/11: Y de la bola delante del centro de la pala
       lateral_limit: 7.0
-      lateral_min: -4.3           # MEDIDO 17/11: choca con la pared en x < -4.5
+      lateral_min: -5.0           # 17/11: -4.3 limitaba demasiado (antes rozaba en < -4.5: vigilar)
       lateral_max: 7.0
       home_y: 13.5
       recoil_y: 10.5              # 17/11: más retroceso = más impulso
