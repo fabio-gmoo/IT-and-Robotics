@@ -27,7 +27,7 @@ vision:
    flip_y: 0
    # Centros de los ArUco (cm): TL, TR, BL, BR tal como se ven en la imagen
    markers: [ -20.4, 8.15,  20.4, 8.15,  -20.4, -8.15,  20.4, -8.15 ]
-   table_half_width: 8.15       # paredes laterales (para predecir rebotes)
+   table_half_width: 10.8       # MEDIDO 17/11: Y del centro de la bola tocando la pared lateral
    table_half_length: 35.0      # solo dibujo / simulación (pala a 32.5 cm del centro)
    velocity_alpha: 0.5          # suavizado de velocidad (1 = sin suavizar)
    lost_timeout_s: 0.3
