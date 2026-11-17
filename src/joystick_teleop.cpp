@@ -82,7 +82,7 @@ int main() {
         return -1;
     }
 
-    const int FIXED_SHOULDER = 341;
+    const int FIXED_SHOULDER = 250; //341;
     const double GAMMA_PARALLEL = 0.0; // Paddle stays parallel to the baseline (x0)
 
     // Base defense position
