@@ -74,6 +74,14 @@ Requisitos: OpenCV 4 (`libopencv-dev`, con `aruco`) y Dynamixel SDK en `/usr/loc
 ./bin/pongbot --arm B --mode 1   # modos de 1 brazo con el brazo B
 ```
 
+**Icono y arranque automático** (abre la GUI con el menú al iniciar sesión):
+```bash
+./scripts/install_autostart.sh            # icono en escritorio/menú + arranque automático
+./scripts/install_autostart.sh --no-auto  # solo el icono
+./scripts/install_autostart.sh --remove   # quitar todo
+```
+Los mensajes de cada ejecución se guardan en `logs/`.
+
 **Teclas en partida:** `X` armar/desarmar brazos · `H` home · `C` recalibrar ArUco ·
 `V` ver máscara de la bola · `SPACE`/`B` gol manual P1/P2 · `M` menú · `ESC` salir.
 **Teclado como joystick** (si un Arduino falla): P1 `A`/`D` + `W` smash · P2 `J`/`L` + `I` smash.
