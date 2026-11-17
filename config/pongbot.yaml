@@ -137,8 +137,8 @@ joysticks:
       invert_x: 0
       max_speed: 30.0
    -
-      device: "/dev/ttyACM1"
-      channel: 0
+      device: "/dev/ttyACM0"        # 17/11: los 2 joysticks en el mismo Arduino (arduino_joystick_dual)
+      channel: 1
       center: 512
       deadzone_low: 450
       deadzone_high: 570
