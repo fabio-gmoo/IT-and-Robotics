@@ -13,13 +13,13 @@ LIBS_DXL = -L/usr/local/lib -ldxl_x64_cpp -lpthread -lrt
 BIN = bin
 OBJ = build
 
-CORE_SRC = src/pongbot/config.cpp src/pongbot/arm.cpp src/pongbot/vision.cpp \
+CORE_SRC = src/pongbot/config.cpp src/pongbot/arm.cpp src/pongbot/vision.cpp src/pongbot/fans.cpp \
            src/pongbot/joystick.cpp src/pongbot/controllers.cpp src/pongbot/sim.cpp \
            src/pongbot/game_gui.cpp
 CORE_OBJ = $(patsubst src/pongbot/%.cpp,$(OBJ)/%.o,$(CORE_SRC))
 HEADERS  = $(wildcard include/pongbot/*.hpp)
 
-TOOLS = $(BIN)/arm_test $(BIN)/joystick_test $(BIN)/hsv_tuner \
+TOOLS = $(BIN)/arm_test $(BIN)/joystick_test $(BIN)/fan_test $(BIN)/hsv_tuner \
         $(BIN)/CameraCalibration $(BIN)/MonoCameraCalibration
 
 all: $(BIN)/pongbot $(TOOLS)
@@ -40,6 +40,10 @@ $(BIN)/arm_test: tools/arm_test.cpp $(OBJ)/arm.o $(OBJ)/config.o $(HEADERS)
 	$(CXX) $(CXXFLAGS) $< $(OBJ)/arm.o $(OBJ)/config.o -o $@ $(LIBS_CV) $(LIBS_DXL)
 
 $(BIN)/joystick_test: tools/joystick_test.cpp $(OBJ)/joystick.o $(OBJ)/config.o $(HEADERS)
+	@mkdir -p $(BIN)
+	$(CXX) $(CXXFLAGS) $< $(OBJ)/joystick.o $(OBJ)/config.o -o $@ $(LIBS_CV)
+
+$(BIN)/fan_test: tools/fan_test.cpp $(OBJ)/joystick.o $(OBJ)/config.o $(HEADERS)
 	@mkdir -p $(BIN)
 	$(CXX) $(CXXFLAGS) $< $(OBJ)/joystick.o $(OBJ)/config.o -o $@ $(LIBS_CV)
 

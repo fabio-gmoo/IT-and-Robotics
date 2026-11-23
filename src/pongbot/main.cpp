@@ -31,6 +31,7 @@
 #include "pongbot/arm.hpp"
 #include "pongbot/config.hpp"
 #include "pongbot/controllers.hpp"
+#include "pongbot/fans.hpp"
 #include "pongbot/game_gui.hpp"
 #include "pongbot/joystick.hpp"
 #include "pongbot/score_manager.hpp"
@@ -190,6 +191,14 @@ int main(int argc, char** argv) {
     CameraThread camera;
     TableVision vision(cfg.vision);
     SimTable sim(cfg.vision);
+
+    // Ventiladores (mismo Arduino que los joysticks)
+    FanController fans(cfg.fans);
+    if (cfg.fans.enabled && !opt.sim) {
+        std::string ferr;
+        if (fans.connect(ferr)) std::cout << "[FANS] Arduino en " << cfg.fans.device << "\n";
+        else std::cerr << "[FANS] " << ferr << "\n";
+    }
 
     if (!vision.loadColor(err)) {
         if (opt.sim) std::cerr << "[VISION] " << err << " (ignorado en --sim)\n";
@@ -396,6 +405,7 @@ int main(int argc, char** argv) {
             }
         }
         for (auto& a : arms) a->update();   // no bloquea
+        fans.update(vision.ball(), t, state == GuiState::PLAYING_MATCH);
 
         // ---- 3) Fin de partida ----
         if (state == GuiState::PLAYING_MATCH &&
@@ -473,6 +483,13 @@ int main(int argc, char** argv) {
                                     cv::FONT_HERSHEY_SIMPLEX, 0.42, cv::Scalar(180, 180, 220), 1, cv::LINE_AA);
                     y += 64;
                 }
+                if (cfg.fans.enabled) {
+                    const bool l = (fans.mask() >> cfg.fans.left_fan) & 1;
+                    const bool r = (fans.mask() >> cfg.fans.right_fan) & 1;
+                    cv::putText(canvas, std::string("Fans: left ") + (l ? "ON" : "-") + "  right " + (r ? "ON" : "-"),
+                                cv::Point(612, 470), cv::FONT_HERSHEY_SIMPLEX, 0.45,
+                                (l || r) ? cv::Scalar(0, 255, 255) : cv::Scalar(170, 170, 170), 1, cv::LINE_AA);
+                }
                 cv::putText(canvas, "Keyboard: P1 A/D + W smash   P2 J/L + I smash", cv::Point(612, 495),
                             cv::FONT_HERSHEY_SIMPLEX, 0.4, cv::Scalar(160, 160, 160), 1, cv::LINE_AA);
                 gui.drawMatchHud(canvas, scoreP1, scoreP2, static_cast<int>(secondsSince(matchStart)),
@@ -533,6 +550,7 @@ int main(int argc, char** argv) {
 
     // ---- Salida limpia: brazos a home (el torque se queda activo, como antes) ----
     for (auto& a : arms) { a->setArmed(false); a->goHome(); }
+    fans.allOff();
     camera.stop();
     cv::destroyAllWindows();
     std::cout << "[PONGBOT] Fin.\n";

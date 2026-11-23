@@ -152,3 +152,15 @@ joysticks:
       invert_x: 0
       invert_y: 0                 # poner 1 si el smash sale al tirar hacia ATRÁS
       max_speed: 30.0
+
+# -----------------------------------------------------------------------------
+#  Ventiladores (sketch arduino/arduino_pongbot). Regla simple:
+#    bola en la mitad IZQUIERDA (X < 0, lado B) -> ventilador izquierdo
+#    bola en la mitad DERECHA  (X > 0, lado A) -> ventilador derecho
+#  Cable azul -> pin; amarillo -> +12 V; negro -> GND fuente; GND fuente <-> GND Arduino.
+# -----------------------------------------------------------------------------
+fans:
+   enabled: 1
+   device: "/dev/serial/by-id/usb-Arduino__www.arduino.cc__0043_5573232363035181B160-if00"
+   left_fan: 3                  # pin D10 (detrás del brazo B)
+   right_fan: 0                 # pin D5  (detrás del brazo A)

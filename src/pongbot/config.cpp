@@ -155,6 +155,14 @@ bool loadConfig(const std::string& path, Config& cfg, std::string& error) {
         readStr(game, "scores_file", cfg.game.scores_file);
     }
 
+    const cv::FileNode fans = fs["fans"];
+    if (!fans.empty()) {
+        readBool(fans, "enabled", cfg.fans.enabled);
+        readStr(fans, "device", cfg.fans.device);
+        readOr(fans, "left_fan", cfg.fans.left_fan);
+        readOr(fans, "right_fan", cfg.fans.right_fan);
+    }
+
     const cv::FileNode arms = fs["arms"];
     if (!arms.empty() && arms.isSeq()) {
         cfg.arms.clear();

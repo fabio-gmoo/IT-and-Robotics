@@ -128,12 +128,22 @@ struct GameConfig {
     std::string scores_file = "data/scores.csv";
 };
 
+// Ventiladores: bola en la mitad IZQUIERDA (X < 0) -> ventilador izquierdo,
+// mitad DERECHA (X > 0) -> ventilador derecho. Nada más.
+struct FanConfig {
+    bool enabled = false;
+    std::string device = "/dev/ttyACM0";   // el mismo Arduino de los joysticks
+    int left_fan = 3;    // bit del ventilador izquierdo  (3 = pin D10)
+    int right_fan = 0;   // bit del ventilador derecho    (0 = pin D5)
+};
+
 struct Config {
     CameraConfig camera;
     VisionConfig vision;
     GameConfig game;
     std::vector<ArmConfig> arms;            // normalmente A (P1) y B (P2)
     std::vector<JoystickConfig> joysticks;  // [0] = P1, [1] = P2
+    FanConfig fans;
 
     // Busca un brazo por nombre; nullptr si no existe.
     const ArmConfig* arm(const std::string& name) const;
