@@ -17,6 +17,11 @@ void FanController::allOff() {
 }
 
 void FanController::update(const BallState& ball, double t, bool active) {
+    // IMPORTANTE: vaciar lo que manda el Arduino (líneas de los joysticks).
+    // Si nadie lo lee (p.ej. en IA vs IA) el buffer USB se llena, el Arduino deja
+    // de recibir las órdenes "F.." y su watchdog apaga los ventiladores.
+    if (serial_) serial_->poll();
+
     int want = 0;
     if (cfg_.enabled && active && ball.valid) {
         const double vx = ball.vel_valid ? ball.vel.x : 0.0;   // cm/s a lo largo de la mesa
