@@ -405,7 +405,8 @@ int main(int argc, char** argv) {
             }
         }
         for (auto& a : arms) a->update();   // no bloquea
-        fans.update(vision.ball(), t, state == GuiState::PLAYING_MATCH);
+        // Ventiladores: SOLO en IA vs IA (en los modos con joystick, apagados)
+        fans.update(vision.ball(), t, state == GuiState::PLAYING_MATCH && selectedMode == MODE_AI_VS_AI);
 
         // ---- 3) Fin de partida ----
         if (state == GuiState::PLAYING_MATCH &&
@@ -483,7 +484,7 @@ int main(int argc, char** argv) {
                                     cv::FONT_HERSHEY_SIMPLEX, 0.42, cv::Scalar(180, 180, 220), 1, cv::LINE_AA);
                     y += 64;
                 }
-                if (cfg.fans.enabled) {
+                if (cfg.fans.enabled && selectedMode == MODE_AI_VS_AI) {
                     const bool l = (fans.mask() >> cfg.fans.left_fan) & 1;
                     const bool r = (fans.mask() >> cfg.fans.right_fan) & 1;
                     char sp[32];

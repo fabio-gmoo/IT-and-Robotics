@@ -98,6 +98,8 @@ Las partidas se guardan en `data/scores.csv`.
 | `./bin/hsv_tuner -c 2` | Ajustar el color de la bola; `S` guarda en `data/color_params_data.xml`. |
 | `./bin/MonoCameraCalibration`, `./bin/CameraCalibration` | Calibración intrínseca de la cámara. |
 | `arduino/arduino_joystick/` | Sketch del joystick (x,y,botón). |
+| `./bin/fan_test` | Probar los ventiladores (derecho / izquierdo). Solo actúan en IA vs IA: ver `docs/fans.md`. |
+| `arduino/arduino_pongbot/` | Sketch actual del Arduino: 2 joysticks + ventiladores. |
 | `make legacy` | Plan B: los programas antiguos que ya funcionaron (ver `legacy/README.md`). |
 
 ## 4. Configuración: `config/pongbot.yaml`
