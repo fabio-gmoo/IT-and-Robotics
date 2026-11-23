@@ -82,7 +82,9 @@ arms:
       goal_u: 34.5                # pala a 32.5 cm + radio de la bola
       min_send_ms: 8
       max_lateral_speed: 60.0     # cm/s; evita saltos bruscos (errores ID 4). 0 = sin límite
-      write_gap_us: 1000          # pausa entre motores; si hay errores de comunicación subir a 3000
+      bus_mode: "sync"            # 23/11: 1 paquete sin respuesta (no se congela con errores). "txrx" = antes
+      resend_ms: 100
+      write_gap_us: 500
    -
       name: "B"
       enabled: 1
@@ -118,7 +120,9 @@ arms:
       goal_u: 34.5                # pala a 32.5 cm + radio de la bola
       min_send_ms: 8
       max_lateral_speed: 60.0     # cm/s; evita saltos bruscos (errores ID 4). 0 = sin límite
-      write_gap_us: 3000          # la muñeca (ID 4) del B perdía paquetes con 1000
+      bus_mode: "sync"
+      resend_ms: 100
+      write_gap_us: 500
 
 # -----------------------------------------------------------------------------
 #  Joysticks (Arduino, 115200 baudios). Formatos de línea aceptados:

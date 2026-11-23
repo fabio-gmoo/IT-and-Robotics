@@ -76,6 +76,11 @@ struct ArmConfig {
     int min_send_ms = 8;                   // período mínimo entre escrituras
     double max_lateral_speed = 60.0;       // cm/s: limita saltos bruscos (0 = sin límite)
     int write_gap_us = 1000;               // pausa entre motores (el viejo usaba 3000)
+    // "sync": un paquete para los 4 motores sin esperar respuesta (no se congela
+    //         si un motor no contesta) + reenvío cada resend_ms.
+    // "txrx": un paquete por motor esperando respuesta (lo de antes).
+    std::string bus_mode = "sync";
+    int resend_ms = 100;
 };
 
 // ---------------------------------------------------------------------------

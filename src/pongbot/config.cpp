@@ -73,6 +73,8 @@ ArmConfig readArm(const cv::FileNode& n) {
     readOr(n, "goal_u", a.goal_u);
     readOr(n, "min_send_ms", a.min_send_ms);
     readOr(n, "write_gap_us", a.write_gap_us);
+    readStr(n, "bus_mode", a.bus_mode);
+    readOr(n, "resend_ms", a.resend_ms);
     readOr(n, "max_lateral_speed", a.max_lateral_speed);
     a.side = (a.side >= 0) ? 1 : -1;
     a.lateral_sign = (a.lateral_sign >= 0) ? 1 : -1;
