@@ -313,14 +313,17 @@ bool PongArm::send(double x, double y, bool force) {
     // Solo escribe los motores que cambiaron (menos tráfico en el bus).
     const int ids[3] = {cfg_.id_base, cfg_.id_elbow, cfg_.id_wrist};
     for (int j = 0; j < 3; ++j)
-        if (force || ticks[j] != last_ticks_[j])
-            ok &= bus_->write2(ids[j], ADDR_GOAL_POSITION, ticks[j]);
+        if (force || ticks[j] != last_ticks_[j]) {
+            if (bus_->write2(ids[j], ADDR_GOAL_POSITION, ticks[j])) {
+                last_ticks_[j] = ticks[j];
+            } else {
+                ok = false;
+                last_ticks_[j] = -1;  // solo se reintenta ESTE motor la próxima vez
+            }
+        }
 
-    if (ok) {
-        last_ticks_ = ticks;
-    } else {
+    if (!ok) {
         ++send_errors_;
-        last_ticks_ = {-1, -1, -1};  // reintenta la próxima vez
         if (std::chrono::duration_cast<std::chrono::seconds>(now - last_error_print_).count() >= 1) {
             std::cerr << "[ARM " << cfg_.name << "] Error de comunicación (" << send_errors_
                       << " en total): " << bus_->lastError() << "\n";

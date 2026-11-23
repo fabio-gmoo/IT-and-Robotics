@@ -154,9 +154,12 @@ joysticks:
       max_speed: 30.0
 
 # -----------------------------------------------------------------------------
-#  Ventiladores (sketch arduino/arduino_pongbot). Regla simple:
-#    bola en la mitad IZQUIERDA (X < 0, lado B) -> ventilador izquierdo
-#    bola en la mitad DERECHA  (X > 0, lado A) -> ventilador derecho
+#  Ventiladores (sketch arduino/arduino_pongbot): ayudan a una bola LENTA a llegar
+#  a la pala hacia la que va.
+#    lenta yendo a la IZQUIERDA -> ventilador DERECHO (sopla hacia la izquierda)
+#    lenta yendo a la DERECHA   -> ventilador IZQUIERDO
+#    casi parada                -> el ventilador de su mitad la saca
+#    rápida                     -> ninguno
 #  Cable azul -> pin; amarillo -> +12 V; negro -> GND fuente; GND fuente <-> GND Arduino.
 # -----------------------------------------------------------------------------
 fans:
@@ -164,3 +167,5 @@ fans:
    device: "/dev/serial/by-id/usb-Arduino__www.arduino.cc__0043_5573232363035181B160-if00"
    left_fan: 3                  # pin D10 (detrás del brazo B)
    right_fan: 0                 # pin D5  (detrás del brazo A)
+   slow_speed: 12.0             # cm/s: más lenta que esto => ventilador (ver "ball .. cm/s" en la GUI)
+   stopped_speed: 2.0           # cm/s a lo largo: menos que esto => casi parada

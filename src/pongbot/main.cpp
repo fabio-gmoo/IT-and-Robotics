@@ -486,7 +486,10 @@ int main(int argc, char** argv) {
                 if (cfg.fans.enabled) {
                     const bool l = (fans.mask() >> cfg.fans.left_fan) & 1;
                     const bool r = (fans.mask() >> cfg.fans.right_fan) & 1;
-                    cv::putText(canvas, std::string("Fans: left ") + (l ? "ON" : "-") + "  right " + (r ? "ON" : "-"),
+                    char sp[32];
+                    std::snprintf(sp, sizeof(sp), "  |  ball %.0f cm/s",
+                                  vision.ball().vel_valid ? cv::norm(vision.ball().vel) : 0.0);
+                    cv::putText(canvas, std::string("Fans: left ") + (l ? "ON" : "-") + "  right " + (r ? "ON" : "-") + sp,
                                 cv::Point(612, 470), cv::FONT_HERSHEY_SIMPLEX, 0.45,
                                 (l || r) ? cv::Scalar(0, 255, 255) : cv::Scalar(170, 170, 170), 1, cv::LINE_AA);
                 }

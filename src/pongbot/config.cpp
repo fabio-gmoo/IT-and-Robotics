@@ -161,6 +161,8 @@ bool loadConfig(const std::string& path, Config& cfg, std::string& error) {
         readStr(fans, "device", cfg.fans.device);
         readOr(fans, "left_fan", cfg.fans.left_fan);
         readOr(fans, "right_fan", cfg.fans.right_fan);
+        readOr(fans, "slow_speed", cfg.fans.slow_speed);
+        readOr(fans, "stopped_speed", cfg.fans.stopped_speed);
     }
 
     const cv::FileNode arms = fs["arms"];

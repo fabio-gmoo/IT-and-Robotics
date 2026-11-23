@@ -1,7 +1,7 @@
 // =============================================================================
-//  Ventiladores: bola en la mitad izquierda -> ventilador izquierdo,
-//                bola en la mitad derecha  -> ventilador derecho,
-//                sin bola o fuera de partida -> apagados.
+//  Ventiladores (ver FanConfig en config.hpp):
+//    bola lenta yendo a la izquierda -> ventilador derecho, y viceversa;
+//    casi parada -> el de su mitad; rápida, sin bola o fuera de partida -> ninguno.
 // =============================================================================
 #ifndef PONGBOT_FANS_HPP
 #define PONGBOT_FANS_HPP

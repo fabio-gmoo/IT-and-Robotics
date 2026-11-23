@@ -128,13 +128,18 @@ struct GameConfig {
     std::string scores_file = "data/scores.csv";
 };
 
-// Ventiladores: bola en la mitad IZQUIERDA (X < 0) -> ventilador izquierdo,
-// mitad DERECHA (X > 0) -> ventilador derecho. Nada más.
+// Ventiladores: ayudan a una bola LENTA a llegar a la pala hacia la que va.
+//   lenta yendo a la izquierda -> ventilador DERECHO (la empuja hacia la izquierda)
+//   lenta yendo a la derecha   -> ventilador IZQUIERDO
+//   casi parada                -> el ventilador de su mitad (la saca al otro lado)
+//   rápida o sin bola          -> ninguno
 struct FanConfig {
     bool enabled = false;
     std::string device = "/dev/ttyACM0";   // el mismo Arduino de los joysticks
-    int left_fan = 3;    // bit del ventilador izquierdo  (3 = pin D10)
-    int right_fan = 0;   // bit del ventilador derecho    (0 = pin D5)
+    int left_fan = 3;            // bit del ventilador izquierdo  (3 = pin D10)
+    int right_fan = 0;           // bit del ventilador derecho    (0 = pin D5)
+    double slow_speed = 12.0;    // cm/s: por debajo, la bola es "lenta"
+    double stopped_speed = 2.0;  // cm/s: por debajo (a lo largo), "casi parada"
 };
 
 struct Config {
