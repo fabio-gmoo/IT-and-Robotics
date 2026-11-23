@@ -22,6 +22,8 @@ public:
     // arms: los brazos que están jugando (su side indica en qué extremo están)
     void step(double dt, const std::vector<const PongArm*>& arms);
     void serve();
+    // Ventiladores encendidos (empujan la bola hacia el centro de la mesa)
+    void setFans(int mask, const FanConfig& fc) { fan_mask_ = mask; fan_cfg_ = fc; }
     bool visible() const { return visible_; }
     cv::Point2f pos() const { return pos_; }
 
@@ -33,6 +35,8 @@ private:
     bool visible_ = true;
     double respawn_timer_ = 0.0;
     std::mt19937 rng_{12345};
+    int fan_mask_ = 0;
+    FanConfig fan_cfg_;
     double last_paddle_u_[2] = {0.0, 0.0};   // [0]: side +1, [1]: side -1
     bool has_last_[2] = {false, false};
 };

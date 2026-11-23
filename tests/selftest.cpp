@@ -14,6 +14,7 @@
 #include "pongbot/arm.hpp"
 #include "pongbot/config.hpp"
 #include "pongbot/controllers.hpp"
+#include "pongbot/fans.hpp"
 #include "pongbot/sim.hpp"
 #include "pongbot/vision.hpp"
 
@@ -149,6 +150,41 @@ int main() {
         const int r1 = simulateMatch(cfg, false, 60.0, gA, gB);
         std::cout << "     IA sola: devoluciones=" << r1 << " goles en A=" << gA << "\n";
         CHECK(r1 >= 5, "IA sola contra la pared: devuelve la bola");
+    }
+
+    std::cout << "6) Ventiladores de esquina (sin Arduino)\n";
+    {
+        FanConfig fc = cfg.fans;
+        fc.enabled = true;
+        auto ball = [](float x, float y) { BallState b; b.valid = true; b.pos = {x, y}; return b; };
+        // a) bola quieta en la esquina +X -Y: tras on_delay se enciende SOLO el 1
+        FanController f(fc);
+        int m = 0;
+        for (double t = 0; t < 1.0; t += 0.02) { f.update(ball(30, -9.5), t, true); m = f.mask(); }
+        CHECK(m == (1 << 1), "bola en esquina +X-Y -> solo FAN 1 (mask=" + std::to_string(m) + ")");
+        // b) sale de la esquina: se apaga tras hold_s
+        for (double t = 1.0; t < 1.0 + fc.hold_s + 0.2; t += 0.02) f.update(ball(0, 0), t, true);
+        CHECK(f.mask() == 0, "bola vuelve al centro -> apagado");
+        // c) bola que solo PASA por la esquina (0.2 s) -> no enciende
+        FanController g(fc);
+        int maxm = 0;
+        for (double t = 0; t < 0.2; t += 0.02) { g.update(ball(30, 9.5), t, true); maxm |= g.mask(); }
+        for (double t = 0.2; t < 1.0; t += 0.02) { g.update(ball(10, 0), t, true); maxm |= g.mask(); }
+        CHECK(maxm == 0, "bola que solo pasa por la esquina -> no enciende");
+        // d) nunca más de uno a la vez, y descanso tras max_on_s
+        FanController h(fc);
+        bool more_than_one = false, rested = false;
+        for (double t = 0; t < fc.max_on_s + 2.0; t += 0.02) {
+            h.update(ball(-30, -9.5), t, true);
+            const int mk = h.mask();
+            if (mk & (mk - 1)) more_than_one = true;
+            if (t > fc.max_on_s + 0.5 && t < fc.max_on_s + 0.5 + fc.rest_s - 0.6 && mk == 0) rested = true;
+        }
+        CHECK(!more_than_one, "nunca 2 ventiladores a la vez");
+        CHECK(rested, "tras max_on_s descansa rest_s");
+        // e) fuera de partida -> apagado
+        h.update(ball(-30, -9.5), 100.0, false);
+        CHECK(h.mask() == 0, "fuera de partida -> todo apagado");
     }
 
     std::cout << (failures == 0 ? "\nTODO OK\n" : "\nHAY FALLOS\n");

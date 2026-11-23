@@ -31,6 +31,7 @@
 #include "pongbot/arm.hpp"
 #include "pongbot/config.hpp"
 #include "pongbot/controllers.hpp"
+#include "pongbot/fans.hpp"
 #include "pongbot/game_gui.hpp"
 #include "pongbot/joystick.hpp"
 #include "pongbot/score_manager.hpp"
@@ -190,6 +191,13 @@ int main(int argc, char** argv) {
     CameraThread camera;
     TableVision vision(cfg.vision);
     SimTable sim(cfg.vision);
+    FanController fans(cfg.fans);
+    bool fansActive = true;   // tecla F en partida
+    if (cfg.fans.enabled && !opt.sim) {
+        std::string ferr;
+        if (fans.connect(ferr)) std::cout << "[FANS] Arduino en " << cfg.fans.device << "\n";
+        else std::cerr << "[FANS] " << ferr << "\n";
+    }
 
     if (!vision.loadColor(err)) {
         if (opt.sim) std::cerr << "[VISION] " << err << " (ignorado en --sim)\n";
@@ -241,6 +249,16 @@ int main(int argc, char** argv) {
             hw.devices.push_back({"Joystick P" + std::to_string(i + 1), shortDevice(j.device) + " - stick " +
                                   std::to_string(j.channel + 1), ok, ok ? "" : "not accessible -> keyboard fallback"});
             hw.joystickOk |= ok;
+        }
+        // Ventiladores
+        if (cfg.fans.enabled) {
+            if (!opt.sim && !fans.connected()) {
+                std::string ferr;
+                fans.connect(ferr);
+            }
+            const bool ok = opt.sim || fans.connected();
+            hw.devices.push_back({"Corner fans", opt.sim ? "simulated" : shortDevice(cfg.fans.device),
+                                  ok, ok ? "" : "Arduino not found -> fans disabled"});
         }
     };
     scanHardware();
@@ -360,6 +378,7 @@ int main(int argc, char** argv) {
                 std::vector<const PongArm*> playing;
                 if (p1.arm) playing.push_back(p1.arm);
                 if (p2.arm) playing.push_back(p2.arm);
+                sim.setFans(fans.mask(), cfg.fans);
                 sim.step(dt, playing);
             }
             if (std::chrono::duration<double>(now - lastSimInject).count() >= 1.0 / 30.0) {
@@ -396,6 +415,7 @@ int main(int argc, char** argv) {
             }
         }
         for (auto& a : arms) a->update();   // no bloquea
+        fans.update(vision.ball(), t, state == GuiState::PLAYING_MATCH && fansActive);
 
         // ---- 3) Fin de partida ----
         if (state == GuiState::PLAYING_MATCH &&
@@ -453,6 +473,8 @@ int main(int argc, char** argv) {
                     pa.armed = p->arm->armed();
                     pv.arms.push_back(pa);
                 }
+                pv.fans_enabled = cfg.fans.enabled && fansActive;
+                pv.fan_mask = fans.mask();
                 gui.drawPlan(canvas, cv::Rect(608, 80, 344, 180), pv);
                 int y = 290;
                 for (Player* p : {&p1, &p2}) {
@@ -519,6 +541,9 @@ int main(int argc, char** argv) {
             } else if (key == 'c') {
                 vision.resetHomography();
                 std::cout << "[VISION] Homografía borrada: mostrar los 4 ArUco.\n";
+            } else if (key == 'f') {
+                fansActive = !fansActive;
+                std::cout << "[FANS] " << (fansActive ? "ON (auto)" : "OFF") << "\n";
             } else if (key == 'v') {
                 showMask = !showMask;
                 if (!showMask) cv::destroyWindow("Ball Mask");
@@ -533,6 +558,7 @@ int main(int argc, char** argv) {
 
     // ---- Salida limpia: brazos a home (el torque se queda activo, como antes) ----
     for (auto& a : arms) { a->setArmed(false); a->goHome(); }
+    fans.allOff();
     camera.stop();
     cv::destroyAllWindows();
     std::cout << "[PONGBOT] Fin.\n";

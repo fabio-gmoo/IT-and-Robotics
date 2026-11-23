@@ -146,7 +146,7 @@ void GameGui::drawMatchHud(cv::Mat& canvas, int scoreP1, int scoreP2,
 
     cv::rectangle(canvas, cv::Rect(0, windowHeight - 26, windowWidth, 26), cv::Scalar(25, 25, 30), -1);
     cv::putText(canvas,
-                "[SPACE] Goal P1  [B] Goal P2  [X] Arm/Disarm  [H] Home  [C] Recalibrate ArUco  [V] Mask  [M] Menu  [ESC] Quit",
+                "[SPACE] Goal P1 [B] Goal P2 [X] Arm/Disarm [H] Home [C] ArUco [V] Mask [F] Fans [M] Menu [ESC] Quit",
                 cv::Point(12, windowHeight - 8), cv::FONT_HERSHEY_SIMPLEX, 0.45, cv::Scalar(200, 200, 200), 1,
                 cv::LINE_AA);
 }
@@ -177,6 +177,19 @@ void GameGui::drawPlan(cv::Mat& canvas, const cv::Rect& area, const PlanView& p)
         cv::line(canvas, P(px, a.paddle_y - 2.5), P(px, a.paddle_y + 2.5), col, 3);
         cv::putText(canvas, a.label, P(px + a.side * 1.5, a.paddle_y + 3.5), cv::FONT_HERSHEY_SIMPLEX,
                     0.4, col, 1, cv::LINE_AA);
+    }
+    // Ventiladores de esquina: 0 (+X+Y), 1 (+X-Y), 2 (-X+Y), 3 (-X-Y)
+    for (int i = 0; i < 4; ++i) {
+        const double sx = (i < 2) ? 1.0 : -1.0, sy = (i % 2 == 0) ? 1.0 : -1.0;
+        const cv::Point c = P(sx * (p.half_length - 3.0), sy * (p.half_width + 0.3));
+        const bool on = (p.fan_mask >> i) & 1;
+        if (on) {
+            cv::circle(canvas, c, 7, cv::Scalar(255, 255, 0), -1);
+            cv::putText(canvas, "FAN", c + cv::Point(-12, sy > 0 ? 18 : -10), cv::FONT_HERSHEY_SIMPLEX, 0.35,
+                        cv::Scalar(255, 255, 0), 1, cv::LINE_AA);
+        } else {
+            cv::circle(canvas, c, 6, p.fans_enabled ? cv::Scalar(160, 160, 100) : cv::Scalar(90, 90, 90), 1);
+        }
     }
     if (p.ball_valid) {
         cv::circle(canvas, P(p.ball.x, p.ball.y), 5, cv::Scalar(0, 120, 255), -1);

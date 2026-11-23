@@ -48,6 +48,8 @@ struct PlanView {
     cv::Point2f vel;
     bool vel_valid = false;
     std::vector<PlanArm> arms;
+    bool fans_enabled = false;
+    int fan_mask = 0;       // bit i = ventilador i encendido
 };
 
 class GameGui {

@@ -152,3 +152,22 @@ joysticks:
       invert_x: 0
       invert_y: 0                 # poner 1 si el smash sale al tirar hacia ATRÁS
       max_speed: 30.0
+
+# -----------------------------------------------------------------------------
+#  Ventiladores de esquina (12 V externos, MOSFET por ventilador, mismo Arduino).
+#  Sketch: arduino/arduino_pongbot.  Pines: FAN0 D5, FAN1 D6, FAN2 D9, FAN3 D10
+#    fan 0: +X +Y (lado A, ARRIBA en la vista cenital)   fan 1: +X -Y (lado A, abajo)
+#    fan 2: -X +Y (lado B, arriba)                       fan 3: -X -Y (lado B, abajo)
+#  Se enciende UNO: el de la esquina donde esté la bola. Tecla F = activar/desactivar.
+# -----------------------------------------------------------------------------
+fans:
+   enabled: 1
+   device: "/dev/serial/by-id/usb-Arduino__www.arduino.cc__0043_5573232363035181B160-if00"
+   corner_x: 24.0               # |X| >= 24 cm ...
+   corner_y: 7.5                # ... y |Y| >= 7.5 cm  => la bola está en una esquina
+   max_x: 34.5                  # detrás de la línea de gol no se enciende
+   on_delay_s: 0.4              # tiempo en la esquina antes de encender
+   hold_s: 0.6                  # sigue encendido tras salir de la esquina
+   max_on_s: 4.0                # máximo seguido ...
+   rest_s: 1.0                  # ... y luego descansa
+   refresh_s: 0.3

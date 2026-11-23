@@ -128,12 +128,31 @@ struct GameConfig {
     std::string scores_file = "data/scores.csv";
 };
 
+// ---------------------------------------------------------------------------
+// Ventiladores de esquina (Arduino, orden "F<mask>"). Se enciende como mucho UNO:
+// el de la esquina donde está la bola.
+//   fan 0: +X +Y   fan 1: +X -Y   fan 2: -X +Y   fan 3: -X -Y
+// ---------------------------------------------------------------------------
+struct FanConfig {
+    bool enabled = false;
+    std::string device = "/dev/ttyACM0";   // el mismo Arduino de los joysticks
+    double corner_x = 24.0;      // |X| >= esto  -> zona de esquina (a lo largo)
+    double corner_y = 7.5;       // |Y| >= esto  -> zona de esquina (a lo ancho)
+    double max_x = 34.5;         // más allá (gol) no se enciende
+    double on_delay_s = 0.4;     // la bola debe estar este tiempo en la esquina
+    double hold_s = 0.6;         // sigue encendido este tiempo tras salir
+    double max_on_s = 4.0;       // máximo seguido; luego descansa
+    double rest_s = 1.0;
+    double refresh_s = 0.3;      // reenvío periódico (el Arduino apaga a los 1.5 s)
+};
+
 struct Config {
     CameraConfig camera;
     VisionConfig vision;
     GameConfig game;
     std::vector<ArmConfig> arms;            // normalmente A (P1) y B (P2)
     std::vector<JoystickConfig> joysticks;  // [0] = P1, [1] = P2
+    FanConfig fans;
 
     // Busca un brazo por nombre; nullptr si no existe.
     const ArmConfig* arm(const std::string& name) const;
