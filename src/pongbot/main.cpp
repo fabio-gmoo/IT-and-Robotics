@@ -497,6 +497,19 @@ int main(int argc, char** argv) {
                                     cv::FONT_HERSHEY_SIMPLEX, 0.42, cv::Scalar(180, 180, 220), 1, cv::LINE_AA);
                     y += 64;
                 }
+                if (cfg.fans.enabled) {
+                    char fb[160];
+                    const BallState& bs = vision.ball();
+                    const bool inMid = bs.valid && std::fabs(bs.pos.x) <= cfg.fans.middle_x;
+                    std::snprintf(fb, sizeof(fb), "FANS %s | %s | still %.1f/%.1fs | A:%s B:%s",
+                                  !fansActive ? "OFF(F)" : (fans.connected() || opt.sim ? "AUTO" : "NO ARDUINO"),
+                                  !bs.valid ? "no ball" : (inMid ? "middle zone" : "near paddle"),
+                                  std::min(fans.stuckFor(t), 9.9), cfg.fans.stuck_time_s,
+                                  ((fans.mask() >> cfg.fans.fan_pos_x) & 1) ? "ON" : "-",
+                                  ((fans.mask() >> cfg.fans.fan_neg_x) & 1) ? "ON" : "-");
+                    cv::putText(canvas, fb, cv::Point(612, 470), cv::FONT_HERSHEY_SIMPLEX, 0.4,
+                                fans.mask() ? cv::Scalar(0, 255, 255) : cv::Scalar(170, 200, 170), 1, cv::LINE_AA);
+                }
                 cv::putText(canvas, "Keyboard: P1 A/D + W smash   P2 J/L + I smash", cv::Point(612, 495),
                             cv::FONT_HERSHEY_SIMPLEX, 0.4, cv::Scalar(160, 160, 160), 1, cv::LINE_AA);
                 gui.drawMatchHud(canvas, scoreP1, scoreP2, static_cast<int>(secondsSince(matchStart)),

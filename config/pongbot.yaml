@@ -169,8 +169,8 @@ fans:
    fan_pos_x: 0                 # ventilador detrás del brazo A = bit 0 = pin D5
    fan_neg_x: 3                 # ventilador detrás del brazo B = bit 3 = pin D10
    middle_x: 26.0               # zona central |X| <= 26 cm (más cerca de las palas actúa el brazo)
-   stuck_radius: 1.5            # la bola se ha movido menos de 1.5 cm ...
-   stuck_time_s: 1.2            # ... en 1.2 s  => trancada
+   stuck_radius: 4.0            # 23/11: la bola se mueve menos de 4 cm ... (1.5 era demasiado estricto:
+   stuck_time_s: 1.0            # ... en 1.0 s  => trancada            los ventiladores a mínimo la hacen derivar)
    min_on_s: 0.8                # tiempo mínimo encendido
    max_on_s: 3.0                # máximo seguido ...
    rest_s: 1.5                  # ... y luego descansa

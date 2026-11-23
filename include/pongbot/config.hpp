@@ -145,8 +145,8 @@ struct FanConfig {
     int fan_pos_x = 0;           // bit del ventilador detrás del brazo A (+X): 0 = pin D5
     int fan_neg_x = 3;           // bit del ventilador detrás del brazo B (-X): 3 = pin D10
     double middle_x = 26.0;      // zona central |X| <= esto (más allá actúa el brazo)
-    double stuck_radius = 1.5;   // cm: se ha movido menos que esto ...
-    double stuck_time_s = 1.2;   // ... durante este tiempo => trancada
+    double stuck_radius = 4.0;   // cm: se ha movido menos que esto ...
+    double stuck_time_s = 1.0;   // ... durante este tiempo => trancada
     double min_on_s = 0.8;       // tiempo mínimo encendido
     double max_on_s = 3.0;       // máximo seguido ...
     double rest_s = 1.5;         // ... y luego descansa
