@@ -20,6 +20,9 @@
 #include <chrono>
 #include <cstdio>
 #include <cstring>
+#include <ctime>
+#include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <memory>
 #include <string>
@@ -57,10 +60,12 @@ struct Options {
     bool sim = false;
     bool no_motors = false;
     std::string single_arm;
+    double time_limit_s = 0;   // --time N: la partida termina sola a los N s (0 = sin límite)
+    std::string label;         // --label TXT: etiqueta de la prueba en data/match_stats.csv
 };
 
 void usage() {
-    std::cout << "Uso: ./bin/pongbot [--config FILE] [--mode 1-5] [--sim] [--no-motors] [--arm A|B]\n"
+    std::cout << "Uso: ./bin/pongbot [--config FILE] [--mode 1-5] [--sim] [--no-motors] [--arm A|B] [--time SEG] [--label TXT]\n"
               << "  Modos: 1 IA | 2 Joystick | 3 Joy vs IA | 4 Joy vs Joy | 5 IA vs IA\n";
 }
 
@@ -70,6 +75,8 @@ bool parseArgs(int argc, char** argv, Options& o) {
         if (a == "--config" && i + 1 < argc) o.config = argv[++i];
         else if (a == "--mode" && i + 1 < argc) o.mode = std::atoi(argv[++i]);
         else if (a == "--sim") o.sim = true;
+        else if (a == "--time" && i + 1 < argc) o.time_limit_s = std::atof(argv[++i]);
+        else if (a == "--label" && i + 1 < argc) o.label = argv[++i];
         else if (a == "--no-motors") o.no_motors = true;
         else if (a == "--arm" && i + 1 < argc) o.single_arm = argv[++i];
         else if (a == "-h" || a == "--help") { usage(); return false; }
@@ -279,6 +286,76 @@ int main(int argc, char** argv) {
     bool showMask = false;
     GoalDetector goals;
 
+    // ---- Registro CSV para el informe: logs/run_<fecha>_mode<N>.csv, una fila por frame en partida ----
+    std::ofstream runLog;
+    auto openRunLog = [&](int mode) {
+        if (runLog.is_open()) runLog.close();
+        std::error_code ec;
+        std::filesystem::create_directories("logs", ec);
+        char name[64];
+        const std::time_t now_c = std::time(nullptr);
+        std::strftime(name, sizeof(name), "logs/run_%Y%m%d_%H%M%S", std::localtime(&now_c));
+        const std::string file = std::string(name) + "_mode" + std::to_string(mode) + ".csv";
+        runLog.open(file);
+        if (!runLog) { std::cerr << "[LOG] No se pudo crear " << file << "\n"; return; }
+        runLog << "t,ball_valid,X,Y,vX,vY";
+        for (auto& a : arms) {
+            const std::string n = a->config().name;
+            runLog << "," << n << "_x," << n << "_y," << n << "_state," << n << "_err";
+        }
+        runLog << ",score1,score2,fan_mask,fans_enabled\n";
+        std::cout << "[LOG] Registrando en " << file << "\n";
+    };
+
+    // ---- Resumen por partida para el informe: data/match_stats.csv (una fila por partida) ----
+    struct MatchStats {
+        bool active = false;
+        double speed_sum = 0, speed_max = 0;
+        long speed_n = 0, frames = 0, ball_frames = 0, fan_frames = 0, slow_frames = 0;
+        int smashes[2] = {0, 0};
+        bool smashing[2] = {false, false};
+        int err0[2] = {0, 0};
+    } ms;
+    auto resetStats = [&]() {
+        ms = MatchStats();
+        ms.active = true;
+        for (size_t i = 0; i < arms.size() && i < 2; ++i) ms.err0[i] = arms[i]->sendErrors();
+    };
+    auto finishMatch = [&](const std::string& how) {
+        if (!ms.active) return;
+        ms.active = false;
+        const double dur = secondsSince(matchStart);
+        const double mean = ms.speed_n ? ms.speed_sum / ms.speed_n : 0.0;
+        const double gpm = dur > 1.0 ? (scoreP1 + scoreP2) * 60.0 / dur : 0.0;
+        const double fanPct = ms.frames ? 100.0 * ms.fan_frames / ms.frames : 0.0;
+        const double slowPct = ms.speed_n ? 100.0 * ms.slow_frames / ms.speed_n : 0.0;
+        const double seenPct = ms.frames ? 100.0 * ms.ball_frames / ms.frames : 0.0;
+        int errs[2] = {0, 0};
+        for (size_t i = 0; i < arms.size() && i < 2; ++i) errs[i] = arms[i]->sendErrors() - ms.err0[i];
+        const std::string file = "data/match_stats.csv";
+        std::error_code ec;
+        std::filesystem::create_directories("data", ec);
+        const bool exists = std::filesystem::exists(file);
+        std::ofstream f(file, std::ios::app);
+        if (!exists)
+            f << "date,label,mode,fans_cfg,end,duration_s,goals_A,goals_B,goals_per_min,"
+                 "mean_speed_cms,max_speed_cms,slow_pct,fans_on_pct,smashes_A,smashes_B,ball_seen_pct,comm_err_A,comm_err_B\n";
+        char date[32];
+        const std::time_t now_c = std::time(nullptr);
+        std::strftime(date, sizeof(date), "%Y-%m-%d %H:%M:%S", std::localtime(&now_c));
+        char buf[512];
+        std::snprintf(buf, sizeof(buf), "%s,%s,%d,%d,%s,%.1f,%d,%d,%.2f,%.1f,%.1f,%.1f,%.1f,%d,%d,%.1f,%d,%d\n",
+                      date, opt.label.c_str(), selectedMode, cfg.fans.enabled ? 1 : 0, how.c_str(), dur,
+                      scoreP1, scoreP2, gpm, mean, ms.speed_max, slowPct, fanPct,
+                      ms.smashes[0], ms.smashes[1], seenPct, errs[0], errs[1]);
+        f << buf;
+        std::printf("\n[STATS] %s | %.0f s | goles %d-%d | %.2f goles/min | velocidad media %.1f cm/s (max %.1f)"
+                    " | lenta %.0f%% | ventiladores %.0f%% | smashes A %d B %d -> %s\n",
+                    opt.label.empty() ? "-" : opt.label.c_str(), dur, scoreP1, scoreP2, gpm, mean, ms.speed_max,
+                    slowPct, fanPct, ms.smashes[0], ms.smashes[1], file.c_str());
+        std::fflush(stdout);
+    };
+
     const auto t0 = Clock::now();
     auto lastLoop = Clock::now();
     auto lastRender = Clock::now() - std::chrono::seconds(1);
@@ -346,6 +423,8 @@ int main(int argc, char** argv) {
         if (opt.sim) sim.serve();
         matchStart = Clock::now();
         menuMessage.clear();
+        openRunLog(mode);
+        resetStats();
         std::cout << "[MATCH] Modo " << mode << ": " << MODE_NAMES[mode - 1] << "\n";
         return true;
     };
@@ -407,6 +486,36 @@ int main(int argc, char** argv) {
         for (auto& a : arms) a->update();   // no bloquea
         // Ventiladores: SOLO en IA vs IA (en los modos con joystick, apagados)
         fans.update(vision.ball(), t, state == GuiState::PLAYING_MATCH && selectedMode == MODE_AI_VS_AI);
+        if (ms.active && state == GuiState::PLAYING_MATCH && newFrame) {
+            const BallState& b = vision.ball();
+            ++ms.frames;
+            if (b.valid) ++ms.ball_frames;
+            if (fans.mask() != 0) ++ms.fan_frames;
+            if (b.valid && b.vel_valid) {
+                const double sp = cv::norm(b.vel);
+                ms.speed_sum += sp; ++ms.speed_n;
+                ms.speed_max = std::max(ms.speed_max, sp);
+                if (sp < cfg.fans.slow_speed) ++ms.slow_frames;
+            }
+            for (size_t i = 0; i < arms.size() && i < 2; ++i) {
+                const bool sm = arms[i]->smashState() != PongArm::SmashState::IDLE;
+                if (sm && !ms.smashing[i]) ++ms.smashes[i];
+                ms.smashing[i] = sm;
+            }
+        }
+        if (runLog.is_open() && state == GuiState::PLAYING_MATCH && newFrame) {
+            const BallState& b = vision.ball();
+            char buf[160];
+            std::snprintf(buf, sizeof(buf), "%.4f,%d,%.2f,%.2f,%.1f,%.1f", t, b.valid ? 1 : 0,
+                          b.pos.x, b.pos.y, b.vel_valid ? b.vel.x : 0.0, b.vel_valid ? b.vel.y : 0.0);
+            runLog << buf;
+            for (auto& a : arms) {
+                std::snprintf(buf, sizeof(buf), ",%.2f,%.2f,%s,%d", a->currentX(), a->currentY(),
+                              smashStateName(a->smashState()), a->sendErrors());
+                runLog << buf;
+            }
+            runLog << "," << scoreP1 << "," << scoreP2 << "," << fans.mask() << "," << (cfg.fans.enabled ? 1 : 0) << "\n";
+        }
 
         // ---- 3) Fin de partida ----
         if (state == GuiState::PLAYING_MATCH &&
@@ -415,6 +524,15 @@ int main(int argc, char** argv) {
             winner = scoreP1 > scoreP2 ? p1.name : p2.name;
             scores.saveMatch(MODE_NAMES[selectedMode - 1], scoreP1, scoreP2, winner, totalSec);
             for (auto& a : arms) { a->setArmed(false); a->goHome(); }
+            finishMatch("points");
+            state = GuiState::GAME_OVER;
+        }
+        // Límite de tiempo (--time N): la partida termina sola
+        if (state == GuiState::PLAYING_MATCH && opt.time_limit_s > 0 &&
+            secondsSince(matchStart) >= opt.time_limit_s) {
+            winner = scoreP1 > scoreP2 ? p1.name : (scoreP2 > scoreP1 ? p2.name : std::string("DRAW"));
+            for (auto& a : arms) { a->setArmed(false); a->goHome(); }
+            finishMatch("time");
             state = GuiState::GAME_OVER;
         }
 
@@ -510,7 +628,7 @@ int main(int argc, char** argv) {
         // ---- 5) Teclado ----
         const int key = cv::waitKey(1);
         if (key < 0) continue;
-        if (key == 27) break;  // ESC
+        if (key == 27) { finishMatch("esc"); break; }  // ESC
 
         if (state == GuiState::SYSTEM_CHECK) {
             if (key == 'r' || key == 'R') scanHardware();
@@ -529,6 +647,7 @@ int main(int argc, char** argv) {
         } else if (state == GuiState::PLAYING_MATCH) {
             if (key == 'm') {
                 for (auto& a : arms) { a->setArmed(false); a->goHome(); }
+                finishMatch("menu");
                 state = GuiState::MAIN_MENU;
             } else if (key == 32) ++scoreP1;
             else if (key == 'b') ++scoreP2;
