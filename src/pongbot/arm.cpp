@@ -86,22 +86,6 @@ bool DxlBus::write2(int id, int addr, int value) {
     return check(id, res, err);
 }
 
-bool DxlBus::syncWrite2(int addr, const std::vector<std::pair<int, int>>& values) {
-    std::lock_guard<std::mutex> lock(mutex_);
-    dynamixel::GroupSyncWrite group(portHandler_, packetHandler_, static_cast<uint16_t>(addr), 2);
-    for (const auto& [id, v] : values) {
-        uint8_t data[2] = {DXL_LOBYTE(static_cast<uint16_t>(v)), DXL_HIBYTE(static_cast<uint16_t>(v))};
-        group.addParam(static_cast<uint8_t>(id), data);
-    }
-    const int res = group.txPacket();
-    if (write_gap_us > 0) std::this_thread::sleep_for(std::chrono::microseconds(write_gap_us));
-    if (res != COMM_SUCCESS) {
-        last_error_ = std::string("sync write: ") + packetHandler_->getTxRxResult(res);
-        return false;
-    }
-    return true;
-}
-
 bool DxlBus::read2(int id, int addr, int& value) {
     std::lock_guard<std::mutex> lock(mutex_);
     uint8_t err = 0;
@@ -220,15 +204,10 @@ bool PongArm::triggerSmash() {
     // El golpe va lo más adelante posible sin salirse del workspace en esta x
     // (esto evita el "desbordamiento" de Y=16.5 en los extremos).
     smash_strike_y_ = maxReachableY(smash_x_, cfg_.strike_y, cfg_.home_y);
-    // Al retroceder el codo se dobla y sobresale hacia la pared: cerca del
-    // límite lateral se retrocede menos (en el límite, nada).
-    const double edge = smash_x_ < 0 ? -cfg_.lateral_min : cfg_.lateral_max;
-    const double r = edge > 0.1 ? std::min(1.0, std::fabs(smash_x_) / edge) : 1.0;
-    smash_recoil_y_ = cfg_.home_y - (cfg_.home_y - cfg_.recoil_y) * std::max(0.0, 1.0 - r * r);
     smash_ = SmashState::RECOIL;
     smash_t0_ = clock_();
     if (verbose()) std::cout << "[ARM " << cfg_.name << "] SMASH en x=" << smash_x_
-              << " (recoil y=" << smash_recoil_y_ << ", strike y=" << smash_strike_y_ << ")\n";
+              << " (strike y=" << smash_strike_y_ << ")\n";
     return true;
 }
 
@@ -283,7 +262,7 @@ void PongArm::update() {
             break;
         case SmashState::RECOIL:
             x = smash_x_;
-            y = smash_recoil_y_;
+            y = cfg_.recoil_y;
             if (ms >= cfg_.recoil_ms) { smash_ = SmashState::STRIKE; smash_t0_ = now; }
             break;
         case SmashState::STRIKE:
@@ -315,11 +294,7 @@ bool PongArm::send(double x, double y, bool force) {
                                       jointToTicks(2, q3)};
     const auto now = clock_();
     const auto since = std::chrono::duration_cast<std::chrono::milliseconds>(now - last_send_).count();
-    const bool sync = cfg_.bus_mode != "txrx";
-    // En modo sync no hay confirmación: reenviamos la misma posición cada resend_ms
-    // por si algún paquete se perdió por ruido.
-    const bool keepalive = sync && since >= cfg_.resend_ms;
-    if (!force && ticks == last_ticks_ && !keepalive) return true;
+    if (!force && ticks == last_ticks_) return true;
     if (!force && since < cfg_.min_send_ms) return true;
 
     last_send_ = now;
@@ -329,24 +304,6 @@ bool PongArm::send(double x, double y, bool force) {
     }
 
     bool ok = true;
-    if (sync) {
-        ok = bus_->syncWrite2(ADDR_GOAL_POSITION, {{cfg_.id_shoulder, cfg_.shoulder_ticks},
-                                                   {cfg_.id_base, ticks[0]},
-                                                   {cfg_.id_elbow, ticks[1]},
-                                                   {cfg_.id_wrist, ticks[2]}});
-        if (ok) {
-            last_ticks_ = ticks;
-        } else {
-            ++send_errors_;
-            if (std::chrono::duration_cast<std::chrono::seconds>(now - last_error_print_).count() >= 1) {
-                std::cerr << "[ARM " << cfg_.name << "] Error de envío (" << send_errors_
-                          << "): " << bus_->lastError() << "\n";
-                last_error_print_ = now;
-            }
-        }
-        return ok;
-    }
-
     // El hombro es fijo: se reenvía de vez en cuando por si alguien lo movió.
     const auto since_sh = std::chrono::duration_cast<std::chrono::milliseconds>(now - last_shoulder_).count();
     if (force || since_sh > 500) {

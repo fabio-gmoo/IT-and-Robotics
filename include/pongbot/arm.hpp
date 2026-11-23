@@ -18,8 +18,6 @@
 #include <memory>
 #include <mutex>
 #include <string>
-#include <utility>
-#include <vector>
 
 #include "pongbot/config.hpp"
 
@@ -41,9 +39,6 @@ public:
 
     bool write1(int id, int addr, int value);
     bool write2(int id, int addr, int value);
-    // Un solo paquete para varios motores, SIN esperar respuesta (no bloquea
-    // aunque un motor no conteste). values: pares (id, valor de 2 bytes).
-    bool syncWrite2(int addr, const std::vector<std::pair<int, int>>& values);
     // Descripción del último fallo (para el log)
     std::string lastError() const { return last_error_; }
     int write_gap_us = 1000;  // pausa entre escrituras (el código viejo usaba 3000)
@@ -133,7 +128,7 @@ private:
     Clock::time_point last_update_;
     bool has_update_ = false;
     double cur_x_ = 0.0, cur_y_ = 0.0;
-    double smash_x_ = 0.0, smash_strike_y_ = 0.0, smash_recoil_y_ = 0.0;
+    double smash_x_ = 0.0, smash_strike_y_ = 0.0;
     SmashState smash_ = SmashState::IDLE;
     Clock::time_point smash_t0_;
 

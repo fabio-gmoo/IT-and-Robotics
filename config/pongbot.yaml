@@ -82,9 +82,7 @@ arms:
       goal_u: 34.5                # pala a 32.5 cm + radio de la bola
       min_send_ms: 8
       max_lateral_speed: 60.0     # cm/s; evita saltos bruscos (errores ID 4). 0 = sin límite
-      bus_mode: "sync"            # 23/11: 1 paquete sin respuesta (no se congela con errores). "txrx" = antes
-      resend_ms: 100
-      write_gap_us: 500
+      write_gap_us: 1000          # pausa entre motores; si hay errores de comunicación subir a 3000
    -
       name: "B"
       enabled: 1
@@ -120,9 +118,7 @@ arms:
       goal_u: 34.5                # pala a 32.5 cm + radio de la bola
       min_send_ms: 8
       max_lateral_speed: 60.0     # cm/s; evita saltos bruscos (errores ID 4). 0 = sin límite
-      bus_mode: "sync"
-      resend_ms: 100
-      write_gap_us: 500
+      write_gap_us: 3000          # la muñeca (ID 4) del B perdía paquetes con 1000
 
 # -----------------------------------------------------------------------------
 #  Joysticks (Arduino, 115200 baudios). Formatos de línea aceptados:
@@ -156,22 +152,3 @@ joysticks:
       invert_x: 0
       invert_y: 0                 # poner 1 si el smash sale al tirar hacia ATRÁS
       max_speed: 30.0
-
-# -----------------------------------------------------------------------------
-#  Ventiladores: uno DETRÁS de cada brazo (sketch arduino/arduino_pongbot).
-#  Si la bola se queda TRANCADA en la zona central, se enciende el ventilador del
-#  lado donde está (mitad de A -> el de A, mitad de B -> el de B). Tecla F = on/off.
-#  Cable azul (PWM) -> pin; amarillo -> +12 V; negro -> GND fuente; GND fuente <-> GND Arduino.
-# -----------------------------------------------------------------------------
-fans:
-   enabled: 1
-   device: "/dev/serial/by-id/usb-Arduino__www.arduino.cc__0043_5573232363035181B160-if00"
-   fan_pos_x: 0                 # ventilador detrás del brazo A = bit 0 = pin D5
-   fan_neg_x: 3                 # ventilador detrás del brazo B = bit 3 = pin D10
-   middle_x: 26.0               # zona central |X| <= 26 cm (más cerca de las palas actúa el brazo)
-   stuck_radius: 4.0            # 23/11: la bola se mueve menos de 4 cm ... (1.5 era demasiado estricto:
-   stuck_time_s: 1.0            # ... en 1.0 s  => trancada            los ventiladores a mínimo la hacen derivar)
-   min_on_s: 0.8                # tiempo mínimo encendido
-   max_on_s: 3.0                # máximo seguido ...
-   rest_s: 1.5                  # ... y luego descansa
-   refresh_s: 0.3

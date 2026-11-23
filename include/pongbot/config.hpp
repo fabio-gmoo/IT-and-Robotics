@@ -76,11 +76,6 @@ struct ArmConfig {
     int min_send_ms = 8;                   // período mínimo entre escrituras
     double max_lateral_speed = 60.0;       // cm/s: limita saltos bruscos (0 = sin límite)
     int write_gap_us = 1000;               // pausa entre motores (el viejo usaba 3000)
-    // "sync": un paquete para los 4 motores sin esperar respuesta (no se congela
-    //         si un motor no contesta) + reenvío cada resend_ms.
-    // "txrx": un paquete por motor esperando respuesta (lo de antes).
-    std::string bus_mode = "sync";
-    int resend_ms = 100;
 };
 
 // ---------------------------------------------------------------------------
@@ -133,33 +128,12 @@ struct GameConfig {
     std::string scores_file = "data/scores.csv";
 };
 
-// ---------------------------------------------------------------------------
-// Ventiladores (Arduino, orden "F<mask>"): uno DETRÁS de cada brazo.
-// Si la bola se queda trancada en la zona central, se enciende el ventilador
-// del lado donde está la bola (mitad del brazo A -> el de A, mitad de B -> el de B)
-// para devolverla al juego. Nunca los dos a la vez.
-// ---------------------------------------------------------------------------
-struct FanConfig {
-    bool enabled = false;
-    std::string device = "/dev/ttyACM0";   // el mismo Arduino de los joysticks
-    int fan_pos_x = 0;           // bit del ventilador detrás del brazo A (+X): 0 = pin D5
-    int fan_neg_x = 3;           // bit del ventilador detrás del brazo B (-X): 3 = pin D10
-    double middle_x = 26.0;      // zona central |X| <= esto (más allá actúa el brazo)
-    double stuck_radius = 4.0;   // cm: se ha movido menos que esto ...
-    double stuck_time_s = 1.0;   // ... durante este tiempo => trancada
-    double min_on_s = 0.8;       // tiempo mínimo encendido
-    double max_on_s = 3.0;       // máximo seguido ...
-    double rest_s = 1.5;         // ... y luego descansa
-    double refresh_s = 0.3;      // reenvío periódico (el Arduino apaga a los 1.5 s)
-};
-
 struct Config {
     CameraConfig camera;
     VisionConfig vision;
     GameConfig game;
     std::vector<ArmConfig> arms;            // normalmente A (P1) y B (P2)
     std::vector<JoystickConfig> joysticks;  // [0] = P1, [1] = P2
-    FanConfig fans;
 
     // Busca un brazo por nombre; nullptr si no existe.
     const ArmConfig* arm(const std::string& name) const;

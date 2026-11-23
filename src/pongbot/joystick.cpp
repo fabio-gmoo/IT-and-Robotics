@@ -52,12 +52,6 @@ SerialLineReader::~SerialLineReader() {
     if (fd_ >= 0) ::close(fd_);
 }
 
-bool SerialLineReader::writeLine(const std::string& line) {
-    if (fd_ < 0) return false;
-    const std::string out = line + "\n";
-    return ::write(fd_, out.data(), out.size()) == static_cast<ssize_t>(out.size());
-}
-
 void SerialLineReader::poll() {
     if (fd_ < 0) return;
     char buf[512];

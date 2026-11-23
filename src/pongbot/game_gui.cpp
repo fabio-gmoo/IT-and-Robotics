@@ -146,7 +146,7 @@ void GameGui::drawMatchHud(cv::Mat& canvas, int scoreP1, int scoreP2,
 
     cv::rectangle(canvas, cv::Rect(0, windowHeight - 26, windowWidth, 26), cv::Scalar(25, 25, 30), -1);
     cv::putText(canvas,
-                "[SPACE] Goal P1 [B] Goal P2 [X] Arm/Disarm [H] Home [C] ArUco [V] Mask [F] Fans [M] Menu [ESC] Quit",
+                "[SPACE] Goal P1  [B] Goal P2  [X] Arm/Disarm  [H] Home  [C] Recalibrate ArUco  [V] Mask  [M] Menu  [ESC] Quit",
                 cv::Point(12, windowHeight - 8), cv::FONT_HERSHEY_SIMPLEX, 0.45, cv::Scalar(200, 200, 200), 1,
                 cv::LINE_AA);
 }
@@ -178,18 +178,6 @@ void GameGui::drawPlan(cv::Mat& canvas, const cv::Rect& area, const PlanView& p)
         cv::putText(canvas, a.label, P(px + a.side * 1.5, a.paddle_y + 3.5), cv::FONT_HERSHEY_SIMPLEX,
                     0.4, col, 1, cv::LINE_AA);
     }
-    // Ventiladores detrás de cada brazo
-    for (int sx : {1, -1}) {
-        const bool on = sx > 0 ? p.fan_pos_on : p.fan_neg_on;
-        const cv::Point c = P(sx * (p.half_length - 1.5), 0.0);
-        if (on) {
-            cv::circle(canvas, c, 8, cv::Scalar(255, 255, 0), -1);
-            cv::putText(canvas, "FAN", c + cv::Point(sx > 0 ? -34 : 10, 4), cv::FONT_HERSHEY_SIMPLEX, 0.4,
-                        cv::Scalar(255, 255, 0), 1, cv::LINE_AA);
-        } else {
-            cv::circle(canvas, c, 7, p.fans_enabled ? cv::Scalar(160, 160, 100) : cv::Scalar(90, 90, 90), 1);
-        }
-    }
     if (p.ball_valid) {
         cv::circle(canvas, P(p.ball.x, p.ball.y), 5, cv::Scalar(0, 120, 255), -1);
         if (p.vel_valid)
@@ -197,7 +185,7 @@ void GameGui::drawPlan(cv::Mat& canvas, const cv::Rect& area, const PlanView& p)
                             P(p.ball.x + p.vel.x * 0.25, p.ball.y + p.vel.y * 0.25),
                             cv::Scalar(0, 200, 255), 1);
         char buf[64];
-        std::snprintf(buf, sizeof(buf), "ball X=%.1f Y=%.1f%s", p.ball.x, p.ball.y, p.ball_stuck ? "  STUCK" : "");
+        std::snprintf(buf, sizeof(buf), "ball X=%.1f Y=%.1f", p.ball.x, p.ball.y);
         cv::putText(canvas, buf, cv::Point(area.x + 5, area.y + area.height - 6), cv::FONT_HERSHEY_SIMPLEX,
                     0.4, cv::Scalar(220, 220, 220), 1, cv::LINE_AA);
     }

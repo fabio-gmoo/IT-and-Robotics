@@ -25,9 +25,6 @@ void SimTable::step(double dt, const std::vector<const PongArm*>& arms) {
         if (respawn_timer_ <= 0.0) serve();
         return;
     }
-    // Ventiladores detrás de los brazos: soplan a lo largo de la mesa
-    if ((fan_mask_ >> fan_cfg_.fan_pos_x) & 1) vel_.x -= static_cast<float>(60.0 * dt);  // detrás de A -> hacia -X
-    if ((fan_mask_ >> fan_cfg_.fan_neg_x) & 1) vel_.x += static_cast<float>(60.0 * dt);  // detrás de B -> hacia +X
     const cv::Point2f prev = pos_;
     pos_ += vel_ * static_cast<float>(dt);
 

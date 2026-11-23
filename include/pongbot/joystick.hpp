@@ -24,8 +24,6 @@ public:
     const std::vector<int>& values() const { return values_; }
     bool hasData() const { return !values_.empty(); }
     const std::string& device() const { return device_; }
-    // Envía una línea al Arduino (p.ej. "F5" para los ventiladores).
-    bool writeLine(const std::string& line);
 
 private:
     SerialLineReader() = default;

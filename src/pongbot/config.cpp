@@ -73,8 +73,6 @@ ArmConfig readArm(const cv::FileNode& n) {
     readOr(n, "goal_u", a.goal_u);
     readOr(n, "min_send_ms", a.min_send_ms);
     readOr(n, "write_gap_us", a.write_gap_us);
-    readStr(n, "bus_mode", a.bus_mode);
-    readOr(n, "resend_ms", a.resend_ms);
     readOr(n, "max_lateral_speed", a.max_lateral_speed);
     a.side = (a.side >= 0) ? 1 : -1;
     a.lateral_sign = (a.lateral_sign >= 0) ? 1 : -1;
@@ -155,21 +153,6 @@ bool loadConfig(const std::string& path, Config& cfg, std::string& error) {
         readOr(game, "goal_max_abs_y", cfg.game.goal_max_abs_y);
         readOr(game, "rearm_center_u", cfg.game.rearm_center_u);
         readStr(game, "scores_file", cfg.game.scores_file);
-    }
-
-    const cv::FileNode fans = fs["fans"];
-    if (!fans.empty()) {
-        readBool(fans, "enabled", cfg.fans.enabled);
-        readStr(fans, "device", cfg.fans.device);
-        readOr(fans, "fan_pos_x", cfg.fans.fan_pos_x);
-        readOr(fans, "fan_neg_x", cfg.fans.fan_neg_x);
-        readOr(fans, "middle_x", cfg.fans.middle_x);
-        readOr(fans, "stuck_radius", cfg.fans.stuck_radius);
-        readOr(fans, "stuck_time_s", cfg.fans.stuck_time_s);
-        readOr(fans, "min_on_s", cfg.fans.min_on_s);
-        readOr(fans, "max_on_s", cfg.fans.max_on_s);
-        readOr(fans, "rest_s", cfg.fans.rest_s);
-        readOr(fans, "refresh_s", cfg.fans.refresh_s);
     }
 
     const cv::FileNode arms = fs["arms"];
