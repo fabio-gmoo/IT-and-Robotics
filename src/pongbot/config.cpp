@@ -159,11 +159,12 @@ bool loadConfig(const std::string& path, Config& cfg, std::string& error) {
     if (!fans.empty()) {
         readBool(fans, "enabled", cfg.fans.enabled);
         readStr(fans, "device", cfg.fans.device);
-        readOr(fans, "corner_x", cfg.fans.corner_x);
-        readOr(fans, "corner_y", cfg.fans.corner_y);
-        readOr(fans, "max_x", cfg.fans.max_x);
-        readOr(fans, "on_delay_s", cfg.fans.on_delay_s);
-        readOr(fans, "hold_s", cfg.fans.hold_s);
+        readOr(fans, "fan_pos_x", cfg.fans.fan_pos_x);
+        readOr(fans, "fan_neg_x", cfg.fans.fan_neg_x);
+        readOr(fans, "middle_x", cfg.fans.middle_x);
+        readOr(fans, "stuck_radius", cfg.fans.stuck_radius);
+        readOr(fans, "stuck_time_s", cfg.fans.stuck_time_s);
+        readOr(fans, "min_on_s", cfg.fans.min_on_s);
         readOr(fans, "max_on_s", cfg.fans.max_on_s);
         readOr(fans, "rest_s", cfg.fans.rest_s);
         readOr(fans, "refresh_s", cfg.fans.refresh_s);

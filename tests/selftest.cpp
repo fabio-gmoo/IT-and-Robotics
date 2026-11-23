@@ -152,39 +152,49 @@ int main() {
         CHECK(r1 >= 5, "IA sola contra la pared: devuelve la bola");
     }
 
-    std::cout << "6) Ventiladores de esquina (sin Arduino)\n";
+    std::cout << "6) Ventiladores detrás de los brazos (sin Arduino)\n";
     {
         FanConfig fc = cfg.fans;
         fc.enabled = true;
+        const int A = 1 << fc.fan_pos_x, B = 1 << fc.fan_neg_x;
         auto ball = [](float x, float y) { BallState b; b.valid = true; b.pos = {x, y}; return b; };
-        // a) bola quieta en la esquina +X -Y: tras on_delay se enciende SOLO el 1
-        FanController f(fc);
-        int m = 0;
-        for (double t = 0; t < 1.0; t += 0.02) { f.update(ball(30, -9.5), t, true); m = f.mask(); }
-        CHECK(m == (1 << 1), "bola en esquina +X-Y -> solo FAN 1 (mask=" + std::to_string(m) + ")");
-        // b) sale de la esquina: se apaga tras hold_s
-        for (double t = 1.0; t < 1.0 + fc.hold_s + 0.2; t += 0.02) f.update(ball(0, 0), t, true);
-        CHECK(f.mask() == 0, "bola vuelve al centro -> apagado");
-        // c) bola que solo PASA por la esquina (0.2 s) -> no enciende
-        FanController g(fc);
-        int maxm = 0;
-        for (double t = 0; t < 0.2; t += 0.02) { g.update(ball(30, 9.5), t, true); maxm |= g.mask(); }
-        for (double t = 0.2; t < 1.0; t += 0.02) { g.update(ball(10, 0), t, true); maxm |= g.mask(); }
-        CHECK(maxm == 0, "bola que solo pasa por la esquina -> no enciende");
-        // d) nunca más de uno a la vez, y descanso tras max_on_s
-        FanController h(fc);
-        bool more_than_one = false, rested = false;
-        for (double t = 0; t < fc.max_on_s + 2.0; t += 0.02) {
-            h.update(ball(-30, -9.5), t, true);
-            const int mk = h.mask();
-            if (mk & (mk - 1)) more_than_one = true;
-            if (t > fc.max_on_s + 0.5 && t < fc.max_on_s + 0.5 + fc.rest_s - 0.6 && mk == 0) rested = true;
-        }
-        CHECK(!more_than_one, "nunca 2 ventiladores a la vez");
-        CHECK(rested, "tras max_on_s descansa rest_s");
-        // e) fuera de partida -> apagado
-        h.update(ball(-30, -9.5), 100.0, false);
-        CHECK(h.mask() == 0, "fuera de partida -> todo apagado");
+        auto run = [&](FanController& f, double t0, double t1, auto pos, int& seen) {
+            for (double t = t0; t < t1; t += 0.02) { f.update(pos(t), t, true); seen |= f.mask(); }
+        };
+        // a) quieta en la mitad de B (izquierda) -> ventilador de B, y no antes de stuck_time
+        { FanController f(fc); int seen = 0, early = 0;
+          run(f, 0, fc.stuck_time_s - 0.1, [&](double) { return ball(-10, 2); }, early);
+          run(f, fc.stuck_time_s - 0.1, 2.0, [&](double) { return ball(-10, 2); }, seen);
+          CHECK(early == 0, "no se enciende antes de " + std::to_string(fc.stuck_time_s) + " s");
+          CHECK(seen == B, "bola trancada en la mitad de B -> SOLO ventilador de B"); }
+        // b) quieta en la mitad de A -> ventilador de A
+        { FanController f(fc); int seen = 0;
+          run(f, 0, 2.0, [&](double) { return ball(12, -3); }, seen);
+          CHECK(seen == A, "bola trancada en la mitad de A -> SOLO ventilador de A"); }
+        // c) bola rodando normal -> nunca
+        { FanController f(fc); int seen = 0;
+          run(f, 0, 3.0, [&](double t) { return ball(static_cast<float>(-20 + 15 * t), 1); }, seen);
+          CHECK(seen == 0, "bola en movimiento -> ninguno"); }
+        // d) quieta junto a una pala (zona del brazo) -> nunca
+        { FanController f(fc); int seen = 0;
+          run(f, 0, 3.0, [&](double) { return ball(30, 0); }, seen);
+          CHECK(seen == 0, "bola quieta junto a la pala (la saca el brazo) -> ninguno"); }
+        // e) se apaga cuando la bola vuelve a moverse
+        { FanController f(fc); int dummy = 0;
+          run(f, 0, 2.0, [&](double) { return ball(-5, 0); }, dummy);
+          run(f, 2.0, 3.5, [&](double t) { return ball(static_cast<float>(-5 + 20 * (t - 2.0)), 0); }, dummy);
+          CHECK(f.mask() == 0, "la bola vuelve a moverse -> apagado"); }
+        // f) sigue sin moverse: máximo max_on_s y descansa
+        { FanController f(fc); bool rested = false, both = false;
+          for (double t = 0; t < fc.stuck_time_s + fc.max_on_s + 1.0; t += 0.02) {
+              f.update(ball(-5, 0), t, true);
+              if (f.mask() == (A | B)) both = true;
+              if (t > fc.stuck_time_s + fc.max_on_s + 0.1 && f.mask() == 0) rested = true;
+          }
+          CHECK(rested, "si no la mueve, descansa tras " + std::to_string(fc.max_on_s) + " s");
+          CHECK(!both, "nunca los dos a la vez");
+          f.update(ball(-5, 0), 100.0, false);
+          CHECK(f.mask() == 0, "fuera de partida -> apagado"); }
     }
 
     std::cout << (failures == 0 ? "\nTODO OK\n" : "\nHAY FALLOS\n");

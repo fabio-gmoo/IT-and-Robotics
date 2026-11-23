@@ -1,106 +1,67 @@
-# Ventiladores de esquina — guía de montaje
+# Ventiladores — guía de montaje
 
-Ventilador: **Foxconn PV902512PSPF (HP 432768-001)**, 92 mm, **12 V · 0.40 A**, 4 cables (PWM).
-Objetivo: cuando la bola se queda en una esquina, se enciende **solo** el ventilador de esa
-esquina y la empuja de vuelta al juego.
+Ventilador: **Foxconn PV902512PSPF (HP 432768-001)**, 92 mm, **12 V · 0.40 A**, 4 cables.
+Montaje actual: **2 ventiladores, uno detrás de cada brazo**, soplando a lo largo de la mesa.
 
-## 1. Material
+## Qué hacen
+Si la bola se queda **trancada en la zona central** (se mueve menos de 1.5 cm en 1.2 s y está
+fuera del alcance de los brazos, |X| ≤ 26 cm), se enciende el ventilador **del lado donde está**:
 
-| Por cada ventilador (×4) | Común |
+| Bola en… | Se enciende | Sopla hacia |
+|---|---|---|
+| mitad del brazo **A** (X > 0, derecha en la GUI) | ventilador detrás de **A** (pin **D5**) | el brazo B |
+| mitad del brazo **B** (X < 0, izquierda en la GUI) | ventilador detrás de **B** (pin **D10**) | el brazo A |
+
+Mínimo 0.8 s encendido, se apaga cuando la bola vuelve a moverse, máximo 3 s seguidos (luego
+descansa 1.5 s). Nunca los dos a la vez. Tecla **F** en partida = activar/desactivar.
+En la vista cenital: círculo amarillo **FAN** = encendido, y `STUCK` junto a la posición de la bola.
+
+## Conexión (cada ventilador)
+
+| Cable | Va a |
 |---|---|
-| 1 MOSFET N **logic-level** (IRLZ44N, IRL540N…) **o** 1 módulo MOSFET (IRF520) | Fuente **12 V ≥ 1 A** (2 A si se prueban los 4 a la vez) |
-| 1 resistencia **220 Ω** (puerta) | Protoboard / regleta |
-| 1 resistencia **10 kΩ** (puerta → GND) | Cables |
-| 1 diodo **1N4007** (o 1N4148/1N5819) | |
+| **Amarillo** (+12 V) | **+12 V** de la fuente |
+| **Negro** (GND) | **GND** de la fuente |
+| **Azul** (PWM) | **D5** (ventilador de A) / **D10** (ventilador de B) |
+| **Verde** (tacómetro) | sin conectar (aislar) |
+| **GND fuente ↔ GND Arduino** | **un cable, obligatorio** (referencia de la señal PWM) |
 
-> Un módulo de **4 relés** también sirve (más simple, hace "clic"): ver §5.
+⚠️ Nunca conectéis los +12 V a un pin del Arduino.
 
-## 2. Cables del ventilador
+**Limitación:** por el cable azul estos ventiladores **no se paran del todo**: "apagado" = velocidad
+mínima, "encendido" = máxima (es así por diseño del ventilador). Para apagarlos del todo hace falta
+cortar la alimentación con algo que maneje el Arduino (MOSFET logic-level, relé, driver L298N o
+placa ULN2003): el pin D5/D10 iría a ese componente en vez de al cable azul. El código no cambia
+(con relés activos en LOW: `FAN_ACTIVE_LOW = true` en el sketch).
 
-El conector de 4 pines PWM estándar (el pin 1 suele estar marcado con un triángulo ▲):
-
-| Pin | Señal | Color habitual | Conexión |
-|---|---|---|---|
-| 1 | GND | **negro** | → **Drain** del MOSFET |
-| 2 | +12 V | **amarillo** (a veces rojo) | → **+12 V** de la fuente |
-| 3 | Tacómetro | verde (a veces blanco/amarillo) | **sin conectar** (aislar) |
-| 4 | PWM | **azul** | **sin conectar** (aislar) |
-
-⚠️ HP a veces usa colores distintos. **Fiaos de la posición en el conector**, o medid con el
-multímetro. Si hay rojo **y** amarillo: rojo = +12 V y amarillo = tacómetro.
-El cable PWM no sirve para apagarlo: con PWM al 0 % estos ventiladores siguen girando despacio.
-Por eso se corta la **alimentación** con el MOSFET.
-
-## 3. Esquema (uno por ventilador)
-
-```
-   +12 V fuente ───────────────┬───────────────► rojo/amarillo (+12 V ventilador)
-                               │
-                           1N4007  (banda/cátodo hacia +12 V)
-                               │
-                               ├───────────────► negro (GND ventilador)
-                               │
-                            Drain
-   Arduino Dx ──[220 Ω]──── Gate      MOSFET N (IRLZ44N: G-D-S mirando el frente)
-                     │      Source
-                  [10 kΩ]      │
-                     │         │
-   GND Arduino ──────┴─────────┴───────────────── GND fuente 12 V   ◄── ¡GND COMÚN!
-```
-
-- **GND común**: el GND de la fuente de 12 V **tiene que** ir al GND del Arduino.
-- **Nunca** conectéis los 12 V a ningún pin del Arduino.
-- El diodo protege el MOSFET del pico al apagar el motor (cátodo = banda → +12 V).
-
-## 4. Pines y esquinas
-
-| Ventilador | Pin Arduino | Esquina (coordenadas de mesa) | En la vista cenital de la GUI |
-|---|---|---|---|
-| FAN 0 | **D5** | +X +Y | lado brazo **A**, **arriba** |
-| FAN 1 | **D6** | +X −Y | lado brazo **A**, **abajo** |
-| FAN 2 | **D9** | −X +Y | lado brazo **B**, **arriba** |
-| FAN 3 | **D10** | −X −Y | lado brazo **B**, **abajo** |
-
-Los joysticks siguen igual (A0, A1, D2 / A2, A3, D3). Orientad cada ventilador **en diagonal
-hacia el centro de la mesa**, un poco inclinado hacia abajo para que el aire "barra" la mesa.
-
-## 5. Alternativa: módulo de 4 relés
-
-`IN1..IN4` → D5, D6, D9, D10 · `VCC` → 5 V · `GND` → GND.
-En cada relé: +12 V de la fuente → `COM`, `NO` → rojo/amarillo del ventilador, negro → GND fuente.
-Casi todos los módulos se activan con LOW: en el sketch poned `FAN_ACTIVE_LOW = true`.
-
-## 6. Subir el sketch (sustituye al de los joysticks, que sigue funcionando igual)
+## Subir el sketch (joysticks + ventiladores)
 
 ```bash
 cd ~/PongBot_final && git pull && make
 arduino-cli compile --fqbn arduino:avr:uno arduino/arduino_pongbot
 arduino-cli upload -p /dev/ttyACM0 --fqbn arduino:avr:uno arduino/arduino_pongbot
 ```
-(cerrad antes `pongbot` / `joystick_test`, si no el puerto está ocupado)
+(cerrad antes `pongbot` / `joystick_test`)
 
-## 7. Probar
+## Probar
 
 ```bash
-./bin/joystick_test    # los joysticks deben seguir dando 6 números
-./bin/fan_test         # enciende FAN 0, 1, 2, 3 uno a uno (3 s cada uno)
-./bin/fan_test 2       # solo el FAN 2 durante 5 s
-./bin/fan_test all     # los 4 a la vez (prueba de la fuente)
+./bin/fan_test        # ventilador de A 3 s, luego el de B 3 s
+./bin/fan_test A      # solo el de A, 5 s
+./bin/fan_test B      # solo el de B, 5 s
+./bin/pongbot --mode 5
 ```
-Comprobad que cada ventilador está en **la esquina que dice la tabla**. Si no, intercambiad los
-cables de los pines (no hace falta tocar el código).
+En el juego: dejad la bola quieta en el centro, un poco hacia el lado de A → a los ~1.2 s sopla el
+ventilador de A. Igual hacia el lado de B.
 
-Luego `./bin/pongbot --mode 5`: dejad la bola en una esquina → a los 0.4 s se enciende ese
-ventilador (círculo amarillo "FAN" en la vista cenital). Tecla **F** = activar/desactivar.
-
-## 8. Ajustes (`config/pongbot.yaml`, sección `fans`)
+## Ajustes (`config/pongbot.yaml`, sección `fans`)
 
 | Parámetro | Valor | Qué hace |
 |---|---|---|
-| `corner_x`, `corner_y` | 24, 7.5 cm | tamaño de la zona de esquina |
-| `on_delay_s` | 0.4 s | tiempo en la esquina antes de encender (no salta si la bola solo pasa) |
-| `hold_s` | 0.6 s | sigue encendido tras salir |
-| `max_on_s` / `rest_s` | 4 s / 1 s | máximo seguido y descanso |
+| `fan_pos_x` / `fan_neg_x` | 0 / 3 | qué pin es cada ventilador (0=D5, 1=D6, 2=D9, 3=D10) |
+| `middle_x` | 26 cm | zona central; más allá actúa el brazo con el smash |
+| `stuck_radius` / `stuck_time_s` | 1.5 cm / 1.2 s | cuándo se considera trancada |
+| `min_on_s` / `max_on_s` / `rest_s` | 0.8 / 3 / 1.5 s | tiempos de encendido |
 
-Seguridad: si `pongbot` se cierra o se cuelga, el Arduino apaga todos los ventiladores a los
-1.5 s (watchdog). Al volver al menú también se apagan.
+Si al probar sale al revés (sopla el de A cuando la bola está del lado de B), intercambiad los
+valores de `fan_pos_x` y `fan_neg_x`.

@@ -1,16 +1,17 @@
 // =============================================================================
-//  PongBot - Arduino Uno: 2 joysticks + 4 ventiladores de esquina
+//  PongBot - Arduino Uno: 2 joysticks + ventiladores (uno detrás de cada brazo)
 //
 //  PC <- Arduino : "x1,y1,b1,x2,y2,b2\n" cada 20 ms (igual que arduino_joystick_dual)
 //  PC -> Arduino : "F<mask>\n"  mask = 0..15, bit i = ventilador i encendido
 //                  (lo manda bin/pongbot y bin/fan_test)
 //
 //  Joysticks:  J1 -> A0, A1, D2 (5 V)     J2 -> A2, A3, D3 (3.3 V)
-//  Ventiladores (puerta de cada MOSFET, a través de 220 ohm):
-//     FAN 0 -> D5   esquina +X +Y  (lado brazo A, ARRIBA en la vista cenital)
-//     FAN 1 -> D6   esquina +X -Y  (lado brazo A, ABAJO)
-//     FAN 2 -> D9   esquina -X +Y  (lado brazo B, ARRIBA)
-//     FAN 3 -> D10  esquina -X -Y  (lado brazo B, ABAJO)
+//  Ventiladores (cable AZUL = PWM, o puerta de un MOSFET / IN de un driver):
+//     FAN 0 -> D5   detrás del brazo A   (fans.fan_pos_x: 0 en el YAML)
+//     FAN 3 -> D10  detrás del brazo B   (fans.fan_neg_x: 3 en el YAML)
+//     (D6 y D9 = bits 1 y 2, libres por si se añaden más)
+//  Con el cable azul: LOW = velocidad mínima (estos ventiladores no se paran
+//  del todo por PWM), HIGH = máxima. ¡GND de la fuente unido al GND del Arduino!
 //
 //  SEGURIDAD: si el PC deja de mandar órdenes durante 1.5 s (programa cerrado,
 //  cable suelto...) se apagan todos los ventiladores.

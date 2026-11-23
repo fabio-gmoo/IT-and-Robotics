@@ -129,20 +129,22 @@ struct GameConfig {
 };
 
 // ---------------------------------------------------------------------------
-// Ventiladores de esquina (Arduino, orden "F<mask>"). Se enciende como mucho UNO:
-// el de la esquina donde está la bola.
-//   fan 0: +X +Y   fan 1: +X -Y   fan 2: -X +Y   fan 3: -X -Y
+// Ventiladores (Arduino, orden "F<mask>"): uno DETRÁS de cada brazo.
+// Si la bola se queda trancada en la zona central, se enciende el ventilador
+// del lado donde está la bola (mitad del brazo A -> el de A, mitad de B -> el de B)
+// para devolverla al juego. Nunca los dos a la vez.
 // ---------------------------------------------------------------------------
 struct FanConfig {
     bool enabled = false;
     std::string device = "/dev/ttyACM0";   // el mismo Arduino de los joysticks
-    double corner_x = 24.0;      // |X| >= esto  -> zona de esquina (a lo largo)
-    double corner_y = 7.5;       // |Y| >= esto  -> zona de esquina (a lo ancho)
-    double max_x = 34.5;         // más allá (gol) no se enciende
-    double on_delay_s = 0.4;     // la bola debe estar este tiempo en la esquina
-    double hold_s = 0.6;         // sigue encendido este tiempo tras salir
-    double max_on_s = 4.0;       // máximo seguido; luego descansa
-    double rest_s = 1.0;
+    int fan_pos_x = 0;           // bit del ventilador detrás del brazo A (+X): 0 = pin D5
+    int fan_neg_x = 3;           // bit del ventilador detrás del brazo B (-X): 3 = pin D10
+    double middle_x = 26.0;      // zona central |X| <= esto (más allá actúa el brazo)
+    double stuck_radius = 1.5;   // cm: se ha movido menos que esto ...
+    double stuck_time_s = 1.2;   // ... durante este tiempo => trancada
+    double min_on_s = 0.8;       // tiempo mínimo encendido
+    double max_on_s = 3.0;       // máximo seguido ...
+    double rest_s = 1.5;         // ... y luego descansa
     double refresh_s = 0.3;      // reenvío periódico (el Arduino apaga a los 1.5 s)
 };
 

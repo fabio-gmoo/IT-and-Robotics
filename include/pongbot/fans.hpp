@@ -1,9 +1,10 @@
 // =============================================================================
-//  FanController: decide qué ventilador de esquina encender según la bola.
-//  - Solo uno a la vez (el de la esquina donde está la bola).
-//  - La bola tiene que estar on_delay_s en la esquina (no salta por una bola
-//    que solo pasa), se mantiene hold_s tras salir, máximo max_on_s seguidos.
-//  - La lógica (update) no depende del hardware: se puede probar sin Arduino.
+//  FanController: un ventilador detrás de cada brazo.
+//  Si la bola está TRANCADA en la zona central (se ha movido menos de
+//  stuck_radius en stuck_time_s), enciende el ventilador del lado donde está:
+//    X > 0 (mitad del brazo A) -> ventilador detrás de A (sopla hacia B)
+//    X < 0 (mitad del brazo B) -> ventilador detrás de B (sopla hacia A)
+//  Nunca los dos a la vez. La lógica no depende del hardware (se prueba en make test).
 // =============================================================================
 #ifndef PONGBOT_FANS_HPP
 #define PONGBOT_FANS_HPP
@@ -21,20 +22,17 @@ class FanController {
 public:
     explicit FanController(const FanConfig& cfg) : cfg_(cfg) {}
 
-    // Abre el puerto del Arduino (compartido con los joysticks si es el mismo).
     bool connect(std::string& error);
     bool connected() const { return serial_ != nullptr; }
 
-    // Esquina (0..3) donde está una posición de mesa, o -1.
-    int cornerOf(const cv::Point2f& p) const;
-
-    // Llamar en cada vuelta. active=false (menú, pausa) => todo apagado.
+    // Llamar en cada vuelta. active=false (menú) => todo apagado.
     void update(const BallState& ball, double t, bool active);
-    // Fuerza una máscara durante 'seconds' (pruebas con teclado).
     void forceMask(int mask, double t, double seconds);
     void allOff();
 
     int mask() const { return mask_; }
+    bool stuck() const { return stuck_; }
+    double stuckFor(double t) const { return anchor_valid_ ? t - anchor_t_ : 0.0; }
     const FanConfig& config() const { return cfg_; }
 
 private:
@@ -46,17 +44,19 @@ private:
     int sent_mask_ = -1;
     double last_send_t_ = -1e9;
 
-    int candidate_ = -1;          // esquina donde está la bola
-    double candidate_since_ = 0;
-    int on_fan_ = -1;             // ventilador encendido
-    double on_since_ = 0;
-    double last_in_zone_ = -1e9;
+    // Detección de bola trancada
+    bool anchor_valid_ = false;
+    cv::Point2f anchor_;
+    double anchor_t_ = 0.0;
+    double last_seen_t_ = -1e9;
+    bool stuck_ = false;
+
+    int on_bit_ = -1;
+    double on_since_ = 0.0;
     double rest_until_ = -1e9;
     int forced_mask_ = 0;
     double forced_until_ = -1e9;
 };
-
-const char* fanCornerName(int i);
 
 }  // namespace pongbot
 

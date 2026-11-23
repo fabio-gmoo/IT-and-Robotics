@@ -1,8 +1,9 @@
 // =============================================================================
 //  fan_test: probar los ventiladores de esquina SIN cámara ni brazos.
-//    ./bin/fan_test          -> enciende 0, 1, 2, 3 uno a uno (3 s cada uno)
-//    ./bin/fan_test 2        -> solo el ventilador 2 durante 5 s
-//    ./bin/fan_test all      -> los 4 a la vez 3 s (prueba de la fuente de 12 V)
+//    ./bin/fan_test          -> ventilador de A, luego el de B (3 s cada uno)
+//    ./bin/fan_test A        -> solo el ventilador detrás del brazo A, 5 s
+//    ./bin/fan_test B        -> solo el ventilador detrás del brazo B, 5 s
+//    ./bin/fan_test 0..3     -> un bit concreto (0 = D5, 1 = D6, 2 = D9, 3 = D10)
 //  Usa fans.device de config/pongbot.yaml (o --device /dev/ttyACM0).
 // =============================================================================
 #include <chrono>
@@ -12,7 +13,6 @@
 #include <thread>
 
 #include "pongbot/config.hpp"
-#include "pongbot/fans.hpp"
 #include "pongbot/joystick.hpp"
 
 using namespace pongbot;
@@ -40,20 +40,24 @@ int main(int argc, char** argv) {
     std::cout << "[OK] " << device << "\n    Esperando 2 s (el Arduino se reinicia al abrir el puerto)...\n";
     std::this_thread::sleep_for(std::chrono::seconds(2));
 
-    if (what == "all") {
-        std::cout << "Los 4 ventiladores 3 s\n";
-        hold(*serial, 0xF, 3.0);
-    } else if (what == "cycle") {
-        for (int i = 0; i < 4; ++i) {
-            std::cout << "FAN " << i << "  ->  esquina " << fanCornerName(i) << std::endl;
-            hold(*serial, 1 << i, 3.0);
-            hold(*serial, 0, 0.6);
-        }
+    const int bitA = cfg.fans.fan_pos_x, bitB = cfg.fans.fan_neg_x;
+    const char* pin[4] = {"D5", "D6", "D9", "D10"};
+    auto show = [&](const char* name, int bit, double secs) {
+        std::cout << "Ventilador " << name << " (pin " << pin[bit & 3] << ") " << secs << " s" << std::endl;
+        hold(*serial, 1 << bit, secs);
+        hold(*serial, 0, 0.8);
+    };
+    if (what == "cycle") {
+        show("detrás del brazo A", bitA, 3.0);
+        show("detrás del brazo B", bitB, 3.0);
+    } else if (what == "A" || what == "a") {
+        show("detrás del brazo A", bitA, 5.0);
+    } else if (what == "B" || what == "b") {
+        show("detrás del brazo B", bitB, 5.0);
     } else {
         const int i = std::atoi(what.c_str());
-        if (i < 0 || i > 3) { std::cerr << "Uso: fan_test [0|1|2|3|all]\n"; return 1; }
-        std::cout << "FAN " << i << "  ->  esquina " << fanCornerName(i) << " (5 s)\n";
-        hold(*serial, 1 << i, 5.0);
+        if (i < 0 || i > 3) { std::cerr << "Uso: fan_test [A|B|0|1|2|3]\n"; return 1; }
+        show("bit", i, 5.0);
     }
     serial->writeLine("F0");
     std::cout << "Todos apagados.\n";

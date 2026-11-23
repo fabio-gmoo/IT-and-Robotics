@@ -49,7 +49,9 @@ struct PlanView {
     bool vel_valid = false;
     std::vector<PlanArm> arms;
     bool fans_enabled = false;
-    int fan_mask = 0;       // bit i = ventilador i encendido
+    bool fan_pos_on = false;  // ventilador detrás del brazo de +X (A)
+    bool fan_neg_on = false;  // ventilador detrás del brazo de -X (B)
+    bool ball_stuck = false;
 };
 
 class GameGui {

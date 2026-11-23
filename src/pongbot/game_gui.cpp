@@ -178,17 +178,16 @@ void GameGui::drawPlan(cv::Mat& canvas, const cv::Rect& area, const PlanView& p)
         cv::putText(canvas, a.label, P(px + a.side * 1.5, a.paddle_y + 3.5), cv::FONT_HERSHEY_SIMPLEX,
                     0.4, col, 1, cv::LINE_AA);
     }
-    // Ventiladores de esquina: 0 (+X+Y), 1 (+X-Y), 2 (-X+Y), 3 (-X-Y)
-    for (int i = 0; i < 4; ++i) {
-        const double sx = (i < 2) ? 1.0 : -1.0, sy = (i % 2 == 0) ? 1.0 : -1.0;
-        const cv::Point c = P(sx * (p.half_length - 3.0), sy * (p.half_width + 0.3));
-        const bool on = (p.fan_mask >> i) & 1;
+    // Ventiladores detrás de cada brazo
+    for (int sx : {1, -1}) {
+        const bool on = sx > 0 ? p.fan_pos_on : p.fan_neg_on;
+        const cv::Point c = P(sx * (p.half_length - 1.5), 0.0);
         if (on) {
-            cv::circle(canvas, c, 7, cv::Scalar(255, 255, 0), -1);
-            cv::putText(canvas, "FAN", c + cv::Point(-12, sy > 0 ? 18 : -10), cv::FONT_HERSHEY_SIMPLEX, 0.35,
+            cv::circle(canvas, c, 8, cv::Scalar(255, 255, 0), -1);
+            cv::putText(canvas, "FAN", c + cv::Point(sx > 0 ? -34 : 10, 4), cv::FONT_HERSHEY_SIMPLEX, 0.4,
                         cv::Scalar(255, 255, 0), 1, cv::LINE_AA);
         } else {
-            cv::circle(canvas, c, 6, p.fans_enabled ? cv::Scalar(160, 160, 100) : cv::Scalar(90, 90, 90), 1);
+            cv::circle(canvas, c, 7, p.fans_enabled ? cv::Scalar(160, 160, 100) : cv::Scalar(90, 90, 90), 1);
         }
     }
     if (p.ball_valid) {
@@ -198,7 +197,7 @@ void GameGui::drawPlan(cv::Mat& canvas, const cv::Rect& area, const PlanView& p)
                             P(p.ball.x + p.vel.x * 0.25, p.ball.y + p.vel.y * 0.25),
                             cv::Scalar(0, 200, 255), 1);
         char buf[64];
-        std::snprintf(buf, sizeof(buf), "ball X=%.1f Y=%.1f", p.ball.x, p.ball.y);
+        std::snprintf(buf, sizeof(buf), "ball X=%.1f Y=%.1f%s", p.ball.x, p.ball.y, p.ball_stuck ? "  STUCK" : "");
         cv::putText(canvas, buf, cv::Point(area.x + 5, area.y + area.height - 6), cv::FONT_HERSHEY_SIMPLEX,
                     0.4, cv::Scalar(220, 220, 220), 1, cv::LINE_AA);
     }

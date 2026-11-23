@@ -257,7 +257,7 @@ int main(int argc, char** argv) {
                 fans.connect(ferr);
             }
             const bool ok = opt.sim || fans.connected();
-            hw.devices.push_back({"Corner fans", opt.sim ? "simulated" : shortDevice(cfg.fans.device),
+            hw.devices.push_back({"Fans", opt.sim ? "simulated" : shortDevice(cfg.fans.device),
                                   ok, ok ? "" : "Arduino not found -> fans disabled"});
         }
     };
@@ -474,7 +474,9 @@ int main(int argc, char** argv) {
                     pv.arms.push_back(pa);
                 }
                 pv.fans_enabled = cfg.fans.enabled && fansActive;
-                pv.fan_mask = fans.mask();
+                pv.fan_pos_on = (fans.mask() >> cfg.fans.fan_pos_x) & 1;
+                pv.fan_neg_on = (fans.mask() >> cfg.fans.fan_neg_x) & 1;
+                pv.ball_stuck = fans.stuck();
                 gui.drawPlan(canvas, cv::Rect(608, 80, 344, 180), pv);
                 int y = 290;
                 for (Player* p : {&p1, &p2}) {
